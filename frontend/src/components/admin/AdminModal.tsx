@@ -56,13 +56,39 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   // Formulaire IPTV Server
   const [iptvServerUrl, setIptvServerUrl] = useState<string>('https://iptv.oussamma.tn/api/v1/channels');
   const [iptvSourceName, setIptvSourceName] = useState<string>('Serveur IPTV Principal');
+  const [iptvAuthMethod, setIptvAuthMethod] = useState<'NONE' | 'TOKEN' | 'BASIC' | 'XTREAM'>('NONE');
+  const [iptvApiToken, setIptvApiToken] = useState<string>('');
+  const [iptvUsername, setIptvUsername] = useState<string>('');
+  const [iptvPassword, setIptvPassword] = useState<string>('');
+  const [iptvAutoSync, setIptvAutoSync] = useState<boolean>(true);
+  const [iptvTesting, setIptvTesting] = useState<boolean>(false);
+  const [iptvSyncing, setIptvSyncing] = useState<boolean>(false);
+  const [iptvTestResult, setIptvTestResult] = useState<{
+    success: boolean;
+    detectedChannels?: number;
+    httpStatus?: number;
+    responseTimeMs?: number;
+    sample?: any[];
+    error?: string;
+  } | null>(null);
+  const [existingSources, setExistingSources] = useState<any[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       loadStats();
       loadChannels();
+      loadSources();
     }
   }, [isOpen]);
+
+  const loadSources = async () => {
+    try {
+      const list = await api.adminListSources();
+      setExistingSources(list);
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -180,15 +206,101 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
-  const handleCreateIptvSource = async () => {
-    if (!iptvServerUrl) return;
+  const handleTestIptvConnection = async () => {
+    if (!iptvServerUrl) {
+      showFeedback('error', 'Veuillez renseigner l\'URL du serveur IPTV.');
+      return;
+    }
+    setIptvTesting(true);
+    setIptvTestResult(null);
     try {
-      await api.adminCreateChannel({
-        name: iptvSourceName,
-        streamUrl: iptvServerUrl,
+      const res = await api.adminTestIptv({
+        url: iptvServerUrl,
+        authMethod: iptvAuthMethod,
+        apiToken: iptvApiToken || undefined,
+        username: iptvUsername || undefined,
+        password: iptvPassword || undefined,
       });
-      showFeedback('success', 'Source IPTV enregistrée.');
+      setIptvTestResult(res);
+      if (res.success) {
+        showFeedback('success', `Connexion réussie : ${res.detectedChannels} chaînes détectées (${res.responseTimeMs}ms)`);
+      } else {
+        showFeedback('error', `Échec de connexion : ${res.error || 'Erreur HTTP ' + res.httpStatus}`);
+      }
+    } catch (err: any) {
+      setIptvTestResult({ success: false, error: err.message });
+      showFeedback('error', err.message);
+    } finally {
+      setIptvTesting(false);
+    }
+  };
+
+  const handleSaveAndSyncIptv = async () => {
+    if (!iptvServerUrl || !iptvSourceName) {
+      showFeedback('error', 'Nom et URL de la source requis.');
+      return;
+    }
+    setIptvSyncing(true);
+    try {
+      const createdSource: any = await api.adminCreateSource({
+        name: iptvSourceName,
+        type: 'IPTV_SERVER',
+        url: iptvServerUrl,
+        autoSync: iptvAutoSync,
+        syncIntervalHours: 24,
+        config: {
+          authMethod: iptvAuthMethod,
+          apiToken: iptvApiToken || undefined,
+          username: iptvUsername || undefined,
+          password: iptvPassword || undefined,
+        },
+      });
+
+      const syncRes = await api.adminSyncIptv(createdSource.id);
+      if (syncRes.success) {
+        showFeedback('success', `Serveur IPTV configuré et ${syncRes.syncedCount || 0} chaînes synchronisées !`);
+      } else {
+        showFeedback('error', `Source créée mais erreur de synchronisation : ${syncRes.error}`);
+      }
+
+      loadSources();
+      loadChannels();
       loadStats();
+      onRefreshData();
+    } catch (err: any) {
+      showFeedback('error', err.message);
+    } finally {
+      setIptvSyncing(false);
+    }
+  };
+
+  const handleSyncSourceNow = async (sourceId: string) => {
+    try {
+      showFeedback('success', 'Synchronisation en cours...');
+      const res = await api.adminSyncIptv(sourceId);
+      if (res.success) {
+        showFeedback('success', `Synchronisation terminée : ${res.syncedCount || 0} chaînes mises à jour.`);
+      } else {
+        showFeedback('error', `Erreur de synchronisation : ${res.error}`);
+      }
+      loadSources();
+      loadChannels();
+      loadStats();
+      onRefreshData();
+    } catch (err: any) {
+      showFeedback('error', err.message);
+    }
+  };
+
+  const handleDeleteSource = async (sourceId: string) => {
+    if (!window.confirm('Supprimer cette source ? Les chaînes associées seront également retirées.')) return;
+    try {
+      await api.adminDeleteSource(sourceId);
+      showFeedback('success', 'Source supprimée.');
+      loadSources();
+      loadChannels();
+      loadStats();
+      onRefreshData();
     } catch (err: any) {
       showFeedback('error', err.message);
     }
@@ -681,14 +793,20 @@ export const AdminModal: React.FC<AdminModalProps> = ({
               </div>
 
               {/* Connecteur IPTV Server */}
-              <div className="p-5 rounded-xl bg-[#131d31] border border-gray-800 space-y-4">
-                <div className="flex items-center gap-2 text-sm font-bold text-gray-200">
-                  <Server className="w-4 h-4 text-purple-400" />
-                  <span>Connecteur IPTV Server (Optionnel)</span>
+              <div className="p-5 rounded-xl bg-[#131d31] border border-gray-800 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-bold text-gray-200">
+                    <Server className="w-4 h-4 text-purple-400" />
+                    <span>Connecteur IPTV Server (Optionnel)</span>
+                  </div>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    Source C Découplée
+                  </span>
                 </div>
-                <p className="text-xs text-gray-400">
-                  Connectez un serveur IPTV externe. En cas d'indisponibilité, les chaînes locales continuent de fonctionner.
-                </p>
+
+                <div className="p-3 bg-purple-950/30 border border-purple-800/40 rounded-xl text-xs text-purple-200 leading-relaxed">
+                  💡 <strong>Architecture résiliente :</strong> La connexion à un serveur IPTV externe est 100% optionnelle et asynchrone. Si le serveur IPTV est indisponible ou hors ligne, vos autres flux (M3U, ajout manuel, seed légal) continuent de fonctionner sans aucune interruption.
+                </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -697,26 +815,239 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       type="text"
                       value={iptvSourceName}
                       onChange={(e) => setIptvSourceName(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white"
+                      className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-purple-500"
+                      placeholder="Ex: IPTV Server VPS / Bouquet Privé"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-gray-400 font-medium">URL de l'API IPTV</label>
+                    <label className="text-xs text-gray-400 font-medium">URL de l'API / Catalogue IPTV</label>
                     <input
                       type="url"
                       value={iptvServerUrl}
                       onChange={(e) => setIptvServerUrl(e.target.value)}
-                      className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white"
+                      className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-purple-500"
+                      placeholder="https://iptv.example.com/api/v1/channels"
                     />
                   </div>
                 </div>
 
-                <button
-                  onClick={handleCreateIptvSource}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition"
-                >
-                  Enregistrer et tester la synchronisation
-                </button>
+                {/* Méthode d'authentification */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-400 font-medium">Méthode d'authentification</label>
+                    <select
+                      value={iptvAuthMethod}
+                      onChange={(e: any) => setIptvAuthMethod(e.target.value)}
+                      className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-purple-500"
+                    >
+                      <option value="NONE">Aucune (API publique / Flux direct)</option>
+                      <option value="TOKEN">Jeton Bearer / Clé API</option>
+                      <option value="BASIC">Authentification HTTP Basic</option>
+                      <option value="XTREAM">Xtream Codes API (player_api.php)</option>
+                    </select>
+                  </div>
+
+                  {iptvAuthMethod === 'TOKEN' && (
+                    <div>
+                      <label className="text-xs text-gray-400 font-medium">Jeton d'accès (Bearer Token)</label>
+                      <input
+                        type="password"
+                        value={iptvApiToken}
+                        onChange={(e) => setIptvApiToken(e.target.value)}
+                        className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-purple-500"
+                        placeholder="eyJhbGciOi..."
+                      />
+                    </div>
+                  )}
+
+                  {(iptvAuthMethod === 'BASIC' || iptvAuthMethod === 'XTREAM') && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-400 font-medium">Utilisateur</label>
+                        <input
+                          type="text"
+                          value={iptvUsername}
+                          onChange={(e) => setIptvUsername(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white"
+                          placeholder="Nom d'utilisateur"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400 font-medium">Mot de passe</label>
+                        <input
+                          type="password"
+                          value={iptvPassword}
+                          onChange={(e) => setIptvPassword(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white"
+                          placeholder="Mot de passe"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="iptv-autosync"
+                    checked={iptvAutoSync}
+                    onChange={(e) => setIptvAutoSync(e.target.checked)}
+                    className="rounded accent-purple-600"
+                  />
+                  <label htmlFor="iptv-autosync" className="text-xs text-gray-300">
+                    Synchronisation automatique quotidienne (intervalle 24h)
+                  </label>
+                </div>
+
+                {/* Boutons d'action */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleTestIptvConnection}
+                    disabled={iptvTesting || iptvSyncing}
+                    className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-semibold flex items-center gap-2 transition disabled:opacity-50"
+                  >
+                    {iptvTesting ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                        <span>Test en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Radio className="w-3.5 h-3.5 text-purple-400" />
+                        <span>Tester la connexion & Prévisualiser</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSaveAndSyncIptv}
+                    disabled={iptvSyncing || iptvTesting}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold flex items-center gap-2 transition disabled:opacity-50 shadow-lg shadow-purple-600/20"
+                  >
+                    {iptvSyncing ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Synchronisation en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCw className="w-3.5 h-3.5" />
+                        <span>Enregistrer et Synchroniser le catalogue</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Résultat du test */}
+                {iptvTestResult && (
+                  <div
+                    className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                      iptvTestResult.success
+                        ? 'bg-green-950/40 border-green-800/60 text-green-200'
+                        : 'bg-red-950/40 border-red-800/60 text-red-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 font-bold">
+                      {iptvTestResult.success ? (
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-red-400" />
+                      )}
+                      <span>
+                        {iptvTestResult.success
+                          ? `Connexion établie (HTTP ${iptvTestResult.httpStatus || 200} en ${iptvTestResult.responseTimeMs || 0}ms)`
+                          : `Échec du test de connexion`}
+                      </span>
+                    </div>
+
+                    {iptvTestResult.success ? (
+                      <p className="text-gray-300">
+                        <strong>{iptvTestResult.detectedChannels || 0}</strong> chaînes détectées et prêtes à être importées dans le catalogue.
+                      </p>
+                    ) : (
+                      <p className="text-red-300">
+                        {iptvTestResult.error || 'Impossible de joindre le serveur IPTV distant.'}
+                      </p>
+                    )}
+
+                    {iptvTestResult.sample && iptvTestResult.sample.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-800/80 space-y-1">
+                        <span className="font-semibold text-[11px] text-gray-400">Exemple de chaînes détectées :</span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px]">
+                          {iptvTestResult.sample.slice(0, 4).map((s: any, idx: number) => (
+                            <div key={idx} className="p-1.5 bg-gray-900/60 rounded border border-gray-800 flex items-center justify-between truncate">
+                              <span className="font-medium text-gray-200 truncate">{s.name}</span>
+                              <span className="text-[10px] text-gray-500 ml-2">{s.category || 'Direct'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Sources IPTV déjà configurées */}
+                <div className="pt-3 border-t border-gray-800 space-y-3">
+                  <h4 className="text-xs font-bold text-gray-300">Sources IPTV Server configurées</h4>
+                  {existingSources.filter((s: any) => s.type === 'IPTV_SERVER').length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">Aucun serveur IPTV configuré pour le moment.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {existingSources
+                        .filter((s: any) => s.type === 'IPTV_SERVER')
+                        .map((s: any) => (
+                          <div
+                            key={s.id}
+                            className="p-3 bg-gray-900/80 border border-gray-800 rounded-xl flex items-center justify-between text-xs"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-gray-200">{s.name}</span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    s.lastSyncStatus === 'SUCCESS'
+                                      ? 'bg-green-500/20 text-green-400'
+                                      : s.lastSyncStatus === 'FAILED'
+                                      ? 'bg-red-500/20 text-red-400'
+                                      : 'bg-gray-800 text-gray-400'
+                                  }`}
+                                >
+                                  {s.lastSyncStatus || 'NON SYNCHRO'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-gray-400 truncate max-w-sm font-mono">{s.url}</p>
+                              <div className="text-[10px] text-gray-500 flex gap-3">
+                                <span>{s._count?.channels || 0} chaînes liées</span>
+                                {s.lastSyncAt && <span>Synchro: {new Date(s.lastSyncAt).toLocaleString('fr-FR')}</span>}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleSyncSourceNow(s.id)}
+                                className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs flex items-center gap-1 transition"
+                                title="Synchroniser maintenant"
+                              >
+                                <RotateCw className="w-3.5 h-3.5 text-blue-400" />
+                                <span>Synchroniser</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteSource(s.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-400 rounded-lg transition"
+                                title="Supprimer la source"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

@@ -147,6 +147,21 @@ export class AdminController {
     return this.sourcesService.importM3uChannels(body);
   }
 
+  @ApiOperation({ summary: 'Tester la connexion à un serveur IPTV sans enregistrer' })
+  @Post('sources/test-iptv')
+  async testIptv(
+    @Body()
+    body: {
+      url: string;
+      authMethod?: 'NONE' | 'TOKEN' | 'BASIC' | 'XTREAM';
+      apiToken?: string;
+      username?: string;
+      password?: string;
+    },
+  ) {
+    return this.sourcesService.testIptvServer(body);
+  }
+
   @ApiOperation({ summary: 'Synchroniser un serveur IPTV' })
   @Post('sources/:id/sync-iptv')
   async syncIptv(@Param('id') id: string) {

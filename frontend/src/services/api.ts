@@ -163,8 +163,52 @@ class ApiService {
     });
   }
 
-  async adminSyncIptv(sourceId: string) {
-    return this.request(`/api/v1/admin/sources/${sourceId}/sync-iptv`, {
+  async adminTestIptv(data: {
+    url: string;
+    authMethod?: 'NONE' | 'TOKEN' | 'BASIC' | 'XTREAM';
+    apiToken?: string;
+    username?: string;
+    password?: string;
+  }): Promise<{
+    success: boolean;
+    httpStatus?: number;
+    responseTimeMs?: number;
+    detectedChannels?: number;
+    sample?: any[];
+    error?: string;
+  }> {
+    return this.request('/api/v1/admin/sources/test-iptv', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminListSources(): Promise<any[]> {
+    return this.request<any[]>('/api/v1/admin/sources');
+  }
+
+  async adminCreateSource(data: {
+    name: string;
+    type: 'MANUAL' | 'M3U_URL' | 'M3U_FILE' | 'IPTV_SERVER';
+    url?: string;
+    autoSync?: boolean;
+    syncIntervalHours?: number;
+    config?: any;
+  }) {
+    return this.request('/api/v1/admin/sources', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminDeleteSource(id: string) {
+    return this.request(`/api/v1/admin/sources/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async adminSyncIptv(sourceId: string): Promise<{ success: boolean; syncedCount?: number; error?: string }> {
+    return this.request<{ success: boolean; syncedCount?: number; error?: string }>(`/api/v1/admin/sources/${sourceId}/sync-iptv`, {
       method: 'POST',
     });
   }

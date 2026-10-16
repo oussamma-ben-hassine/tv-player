@@ -187,6 +187,87 @@ export class SourcesService {
     };
   }
 
+  async testIptvServer(params: {
+    url: string;
+    authMethod?: 'NONE' | 'TOKEN' | 'BASIC' | 'XTREAM';
+    apiToken?: string;
+    username?: string;
+    password?: string;
+  }) {
+    const safeUrl = validateSafeUrl(params.url);
+    const headers: any = {};
+    let targetUrl = safeUrl;
+
+    if (params.authMethod === 'TOKEN' && params.apiToken) {
+      headers['Authorization'] = `Bearer ${params.apiToken}`;
+    } else if (params.authMethod === 'BASIC' && params.username) {
+      const basic = Buffer.from(`${params.username}:${params.password || ''}`).toString('base64');
+      headers['Authorization'] = `Basic ${basic}`;
+    } else if (params.authMethod === 'XTREAM' && params.username) {
+      const u = new URL(targetUrl);
+      if (!u.pathname.includes('player_api.php')) {
+        u.pathname = u.pathname.replace(/\/$/, '') + '/player_api.php';
+      }
+      u.searchParams.set('username', params.username);
+      u.searchParams.set('password', params.password || '');
+      u.searchParams.set('action', 'get_live_streams');
+      targetUrl = u.toString();
+    }
+
+    try {
+      const start = Date.now();
+      const res = await axios.get(targetUrl, {
+        headers,
+        timeout: 15000,
+        responseType: 'text',
+      });
+      const responseTimeMs = Date.now() - start;
+
+      let channelCount = 0;
+      let sampleChannels: any[] = [];
+      const raw = res.data;
+
+      if (typeof raw === 'string' && raw.includes('#EXTM3U')) {
+        const parsed = parseM3uContent(raw);
+        channelCount = parsed.length;
+        sampleChannels = parsed.slice(0, 10).map((c) => ({
+          name: c.name,
+          category: c.categoryName,
+          streamUrl: c.streamUrl,
+          logoUrl: c.logoUrl,
+        }));
+      } else {
+        try {
+          const json = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          const items = Array.isArray(json) ? json : json.channels || json.streams || [];
+          channelCount = items.length;
+          sampleChannels = items.slice(0, 10).map((item: any) => ({
+            name: item.name || item.title,
+            category: item.category || item.categoryName || 'IPTV Server',
+            streamUrl: item.streamUrl || item.url || item.stream_url,
+            logoUrl: item.logo || item.logoUrl,
+          }));
+        } catch {
+          channelCount = 0;
+        }
+      }
+
+      return {
+        success: true,
+        httpStatus: res.status,
+        responseTimeMs,
+        detectedChannels: channelCount,
+        sample: sampleChannels,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err.response?.data?.message || err.message,
+        httpStatus: err.response?.status,
+      };
+    }
+  }
+
   async syncIptvServer(sourceId: string) {
     const source = await this.prisma.source.findUnique({
       where: { id: sourceId },
@@ -210,17 +291,45 @@ export class SourcesService {
       } catch {}
 
       const headers: any = {};
-      if (config.apiToken) {
+      let targetUrl = safeUrl;
+
+      if (config.authMethod === 'TOKEN' && config.apiToken) {
+        headers['Authorization'] = `Bearer ${config.apiToken}`;
+      } else if (config.authMethod === 'BASIC' && config.username) {
+        const basic = Buffer.from(`${config.username}:${config.password || ''}`).toString('base64');
+        headers['Authorization'] = `Basic ${basic}`;
+      } else if (config.apiToken) {
         headers['Authorization'] = `Bearer ${config.apiToken}`;
       }
 
       // Requête au serveur IPTV
-      const res = await axios.get(safeUrl, {
+      const res = await axios.get(targetUrl, {
         headers,
-        timeout: 15000,
+        timeout: 20000,
+        responseType: 'text',
       });
 
-      const items = Array.isArray(res.data) ? res.data : res.data.channels || [];
+      let items: any[] = [];
+      const raw = res.data;
+
+      if (typeof raw === 'string' && raw.includes('#EXTM3U')) {
+        const parsed = parseM3uContent(raw);
+        items = parsed.map((c) => ({
+          name: c.name,
+          category: c.categoryName || 'IPTV Server',
+          streamUrl: c.streamUrl,
+          logo: c.logoUrl,
+          epgId: c.epgId,
+          active: true,
+        }));
+      } else {
+        try {
+          const json = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          items = Array.isArray(json) ? json : json.channels || json.streams || [];
+        } catch {
+          items = [];
+        }
+      }
       let syncedCount = 0;
 
       for (const item of items) {
