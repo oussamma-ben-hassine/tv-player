@@ -23,7 +23,34 @@ export class AuthService {
   private readonly redirectUri = process.env.SSO_REDIRECT_URI || `${this.appUrl}/auth/callback`;
   private readonly scopes = process.env.SSO_SCOPES || 'openid profile email';
 
+  private readonly pkceCache = new Map<string, { verifier: string; expiresAt: number }>();
+
   constructor(private readonly prisma: PrismaService) {}
+
+  savePkceVerifier(state: string, verifier: string) {
+    this.cleanExpiredPkce();
+    this.pkceCache.set(state, { verifier, expiresAt: Date.now() + 15 * 60 * 1000 });
+  }
+
+  getPkceVerifier(state: string): string | undefined {
+    const entry = this.pkceCache.get(state);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiresAt) {
+      this.pkceCache.delete(state);
+      return undefined;
+    }
+    this.pkceCache.delete(state);
+    return entry.verifier;
+  }
+
+  private cleanExpiredPkce() {
+    const now = Date.now();
+    for (const [key, value] of this.pkceCache.entries()) {
+      if (now > value.expiresAt) {
+        this.pkceCache.delete(key);
+      }
+    }
+  }
 
   generatePkcePair() {
     const codeVerifier = crypto.randomBytes(32).toString('base64url');
@@ -53,18 +80,20 @@ export class AuthService {
     return `${this.ssoBaseUrl}/oauth/logout?post_logout_redirect_uri=${encodeURIComponent(this.appUrl)}`;
   }
 
-  async handleCallback(code: string, codeVerifier: string): Promise<UserSession> {
+  async handleCallback(code: string, codeVerifier?: string): Promise<UserSession> {
     const tokenEndpoint = `${this.ssoBaseUrl}/oauth/token`;
     const userinfoEndpoint = `${this.ssoBaseUrl}/oauth/userinfo`;
 
     try {
-      const tokenParams = new URLSearchParams({
-        grant_type: 'authorization_code',
-        code: code,
-        redirect_uri: this.redirectUri,
-        client_id: this.clientId,
-        code_verifier: codeVerifier,
-      });
+      const tokenParams = new URLSearchParams();
+      tokenParams.append('grant_type', 'authorization_code');
+      tokenParams.append('code', code);
+      tokenParams.append('redirect_uri', this.redirectUri);
+      tokenParams.append('client_id', this.clientId);
+      tokenParams.append('client_secret', this.clientSecret);
+      if (codeVerifier) {
+        tokenParams.append('code_verifier', codeVerifier);
+      }
 
       const basicAuth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
       const tokenResponse = await axios.post(tokenEndpoint, tokenParams.toString(), {
@@ -143,8 +172,9 @@ export class AuthService {
         role: user.role,
       };
     } catch (error: any) {
-      this.logger.error(`Erreur d'échange de code SSO: ${error.response?.data || error.message}`);
-      throw new UnauthorizedException(`Échec de l'authentification SSO: ${error.message}`);
+      const errDetails = error.response?.data ? JSON.stringify(error.response.data) : error.message;
+      this.logger.error(`Erreur d'échange de code SSO: ${errDetails}`);
+      throw new UnauthorizedException(`Échec de l'authentification SSO: ${errDetails}`);
     }
   }
 

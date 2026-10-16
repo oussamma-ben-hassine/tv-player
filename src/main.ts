@@ -8,6 +8,10 @@ async function bootstrap() {
   const logger = new Logger('TVPlayerBootstrap');
   const app = await NestFactory.create(AppModule);
 
+  // Faire confiance au reverse proxy (Traefik / Coolify) pour X-Forwarded-Proto: https
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

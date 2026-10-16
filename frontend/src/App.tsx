@@ -139,6 +139,12 @@ export const App: React.FC = () => {
               </p>
             </div>
 
+            {new URLSearchParams(window.location.search).get('error') && (
+              <div className="p-3 bg-red-950/80 border border-red-800 text-red-200 text-xs rounded-xl text-left">
+                <strong>Erreur SSO :</strong> {decodeURIComponent(new URLSearchParams(window.location.search).get('error') || '')}
+              </div>
+            )}
+
             <div className="space-y-3 text-left text-xs text-gray-300 bg-gray-900/60 p-4 rounded-xl border border-gray-800">
               <div className="flex items-center gap-2.5">
                 <ShieldCheck className="w-4 h-4 text-green-400 flex-shrink-0" />

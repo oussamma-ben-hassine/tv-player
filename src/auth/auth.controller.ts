@@ -14,8 +14,11 @@ export class AuthController {
   @Get('auth/login')
   login(@Req() req: any, @Res() res: Response) {
     const { codeVerifier, codeChallenge, state } = this.authService.generatePkcePair();
-    req.session.pkce_verifier = codeVerifier;
-    req.session.oauth_state = state;
+    if (req.session) {
+      req.session.pkce_verifier = codeVerifier;
+      req.session.oauth_state = state;
+    }
+    this.authService.savePkceVerifier(state, codeVerifier);
 
     const authUrl = this.authService.getAuthorizationUrl(codeChallenge, state);
     return res.redirect(authUrl);
@@ -40,17 +43,23 @@ export class AuthController {
     }
 
     const savedState = req.session?.oauth_state;
-    const codeVerifier = req.session?.pkce_verifier;
+    let codeVerifier = req.session?.pkce_verifier;
 
-    if (savedState && state !== savedState) {
+    if (!codeVerifier && state) {
+      codeVerifier = this.authService.getPkceVerifier(state);
+    }
+
+    if (savedState && state && state !== savedState) {
       return res.redirect('/?error=state_invalide');
     }
 
     try {
       const userSession = await this.authService.handleCallback(code, codeVerifier);
-      req.session.user = userSession;
-      delete req.session.pkce_verifier;
-      delete req.session.oauth_state;
+      if (req.session) {
+        req.session.user = userSession;
+        delete req.session.pkce_verifier;
+        delete req.session.oauth_state;
+      }
 
       return res.redirect('/');
     } catch (err: any) {
