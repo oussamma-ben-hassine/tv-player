@@ -158,6 +158,8 @@ class ApiService {
   async adminImportM3u(data: {
     sourceName?: string;
     sourceUrl?: string;
+    autoSync?: boolean;
+    syncIntervalHours?: number;
     channels: any[];
   }): Promise<{ added: number; updated: number; totalProcessed: number }> {
     return this.request<{ added: number; updated: number; totalProcessed: number }>('/api/v1/admin/sources/m3u/import', {
@@ -207,6 +209,28 @@ class ApiService {
   async adminDeleteSource(id: string) {
     return this.request(`/api/v1/admin/sources/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async adminUpdateSource(
+    id: string,
+    data: {
+      name?: string;
+      autoSync?: boolean;
+      syncIntervalHours?: number;
+      url?: string;
+      config?: any;
+    },
+  ) {
+    return this.request(`/api/v1/admin/sources/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminSyncSource(sourceId: string): Promise<{ success: boolean; syncedCount?: number; error?: string }> {
+    return this.request<{ success: boolean; syncedCount?: number; error?: string }>(`/api/v1/admin/sources/${sourceId}/sync`, {
+      method: 'POST',
     });
   }
 

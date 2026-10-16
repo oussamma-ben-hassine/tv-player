@@ -56,6 +56,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [m3uSourceName, setM3uSourceName] = useState<string>('Playlist M3U Importée');
   const [m3uPreview, setM3uPreview] = useState<any | null>(null);
   const [selectedM3uIndices, setSelectedM3uIndices] = useState<number[]>([]);
+  const [m3uAutoSync, setM3uAutoSync] = useState<boolean>(false);
+  const [m3uSyncIntervalHours, setM3uSyncIntervalHours] = useState<number>(24);
 
   // Formulaire catégorie
   const [newCatName, setNewCatName] = useState<string>('');
@@ -68,6 +70,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [iptvUsername, setIptvUsername] = useState<string>('');
   const [iptvPassword, setIptvPassword] = useState<string>('');
   const [iptvAutoSync, setIptvAutoSync] = useState<boolean>(true);
+  const [iptvSyncIntervalHours, setIptvSyncIntervalHours] = useState<number>(24);
   const [iptvTesting, setIptvTesting] = useState<boolean>(false);
   const [iptvSyncing, setIptvSyncing] = useState<boolean>(false);
   const [iptvTestResult, setIptvTestResult] = useState<{
@@ -238,12 +241,15 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       const res: any = await api.adminImportM3u({
         sourceName: m3uSourceName,
         sourceUrl: m3uUrl || undefined,
+        autoSync: m3uUrl ? m3uAutoSync : false,
+        syncIntervalHours: m3uSyncIntervalHours,
         channels: channelsToImport,
       });
       showFeedback('success', `Import réussi : ${res.added} ajoutées, ${res.updated} mises à jour.`);
       setM3uPreview(null);
       setM3uContent('');
       setM3uUrl('');
+      loadSources();
       loadChannels();
       loadStats();
       onRefreshData();
@@ -295,7 +301,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         type: 'IPTV_SERVER',
         url: iptvServerUrl,
         autoSync: iptvAutoSync,
-        syncIntervalHours: 24,
+        syncIntervalHours: iptvSyncIntervalHours,
         config: {
           authMethod: iptvAuthMethod,
           apiToken: iptvApiToken || undefined,
@@ -304,7 +310,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         },
       });
 
-      const syncRes = await api.adminSyncIptv(createdSource.id);
+      const syncRes = await api.adminSyncSource(createdSource.id);
       if (syncRes.success) {
         showFeedback('success', `Serveur IPTV configuré et ${syncRes.syncedCount || 0} chaînes synchronisées !`);
       } else {
@@ -325,7 +331,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const handleSyncSourceNow = async (sourceId: string) => {
     try {
       showFeedback('success', 'Synchronisation en cours...');
-      const res = await api.adminSyncIptv(sourceId);
+      const res = await api.adminSyncSource(sourceId);
       if (res.success) {
         showFeedback('success', `Synchronisation terminée : ${res.syncedCount || 0} chaînes mises à jour.`);
       } else {
@@ -335,6 +341,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       loadChannels();
       loadStats();
       onRefreshData();
+    } catch (err: any) {
+      showFeedback('error', err.message);
+    }
+  };
+
+  const handleUpdateSourceAutoSync = async (sourceId: string, autoSync: boolean, syncIntervalHours: number) => {
+    try {
+      await api.adminUpdateSource(sourceId, { autoSync, syncIntervalHours });
+      showFeedback('success', `Paramètres de rafraîchissement mis à jour (${autoSync ? 'Toutes les ' + syncIntervalHours + 'h' : 'manuel'}).`);
+      loadSources();
     } catch (err: any) {
       showFeedback('error', err.message);
     }
@@ -862,6 +878,42 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </div>
                 </div>
 
+                {m3uUrl && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-900/60 rounded-xl border border-gray-800 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={m3uAutoSync}
+                        onChange={(e) => setM3uAutoSync(e.target.checked)}
+                        className="rounded accent-blue-600"
+                      />
+                      <span className="text-gray-300 font-medium">
+                        Activer la synchronisation automatique pour cette URL
+                      </span>
+                    </label>
+
+                    {m3uAutoSync && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">Fréquence :</span>
+                        <select
+                          value={m3uSyncIntervalHours}
+                          onChange={(e) => setM3uSyncIntervalHours(Number(e.target.value))}
+                          className="px-2.5 py-1 bg-gray-900 border border-gray-700 rounded-lg text-xs text-white"
+                        >
+                          <option value={1}>Toutes les 1 heure</option>
+                          <option value={2}>Toutes les 2 heures</option>
+                          <option value={4}>Toutes les 4 heures</option>
+                          <option value={6}>Toutes les 6 heures</option>
+                          <option value={12}>Toutes les 12 heures</option>
+                          <option value={24}>Toutes les 24 heures (1 jour)</option>
+                          <option value={48}>Toutes les 48 heures (2 jours)</option>
+                          <option value={168}>Toutes les semaines (7 jours)</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="text-xs text-gray-400 font-medium">
                     Ou coller le contenu M3U brut (#EXTM3U)
@@ -1024,17 +1076,39 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="iptv-autosync"
-                    checked={iptvAutoSync}
-                    onChange={(e) => setIptvAutoSync(e.target.checked)}
-                    className="rounded accent-purple-600"
-                  />
-                  <label htmlFor="iptv-autosync" className="text-xs text-gray-300">
-                    Synchronisation automatique quotidienne (intervalle 24h)
+                <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-gray-900/60 rounded-xl border border-gray-800 text-xs">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id="iptv-autosync"
+                      checked={iptvAutoSync}
+                      onChange={(e) => setIptvAutoSync(e.target.checked)}
+                      className="rounded accent-purple-600"
+                    />
+                    <span className="text-gray-200 font-medium">
+                      Activer la synchronisation automatique en arrière-plan
+                    </span>
                   </label>
+
+                  {iptvAutoSync && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400">Fréquence de rafraîchissement :</span>
+                      <select
+                        value={iptvSyncIntervalHours}
+                        onChange={(e) => setIptvSyncIntervalHours(Number(e.target.value))}
+                        className="px-2.5 py-1 bg-gray-900 border border-gray-700 rounded-lg text-xs text-white font-medium focus:border-purple-500"
+                      >
+                        <option value={1}>Toutes les 1 heure</option>
+                        <option value={2}>Toutes les 2 heures</option>
+                        <option value={4}>Toutes les 4 heures</option>
+                        <option value={6}>Toutes les 6 heures</option>
+                        <option value={12}>Toutes les 12 heures</option>
+                        <option value={24}>Toutes les 24 heures (1 jour - défaut)</option>
+                        <option value={48}>Toutes les 48 heures (2 jours)</option>
+                        <option value={168}>Toutes les semaines (7 jours)</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* Boutons d'action */}
@@ -1126,63 +1200,99 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                   </div>
                 )}
 
-                {/* Sources IPTV déjà configurées */}
+                {/* Sources configurées (IPTV & M3U) */}
                 <div className="pt-3 border-t border-gray-800 space-y-3">
-                  <h4 className="text-xs font-bold text-gray-300">Sources IPTV Server configurées</h4>
-                  {existingSources.filter((s: any) => s.type === 'IPTV_SERVER').length === 0 ? (
-                    <p className="text-xs text-gray-500 italic">Aucun serveur IPTV configuré pour le moment.</p>
+                  <h4 className="text-xs font-bold text-gray-300">Toutes les sources configurées & synchronisation</h4>
+                  {existingSources.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic">Aucune source externe configurée pour le moment.</p>
                   ) : (
                     <div className="space-y-2">
-                      {existingSources
-                        .filter((s: any) => s.type === 'IPTV_SERVER')
-                        .map((s: any) => (
-                          <div
-                            key={s.id}
-                            className="p-3 bg-gray-900/80 border border-gray-800 rounded-xl flex items-center justify-between text-xs"
-                          >
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-gray-200">{s.name}</span>
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                    s.lastSyncStatus === 'SUCCESS'
-                                      ? 'bg-green-500/20 text-green-400'
-                                      : s.lastSyncStatus === 'FAILED'
-                                      ? 'bg-red-500/20 text-red-400'
-                                      : 'bg-gray-800 text-gray-400'
-                                  }`}
-                                >
-                                  {s.lastSyncStatus || 'NON SYNCHRO'}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-gray-400 truncate max-w-sm font-mono">{s.url}</p>
-                              <div className="text-[10px] text-gray-500 flex gap-3">
-                                <span>{s._count?.channels || 0} chaînes liées</span>
-                                {s.lastSyncAt && <span>Synchro: {new Date(s.lastSyncAt).toLocaleString('fr-FR')}</span>}
-                              </div>
+                      {existingSources.map((s: any) => (
+                        <div
+                          key={s.id}
+                          className="p-3 bg-gray-900/80 border border-gray-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-bold text-gray-200">{s.name}</span>
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-gray-800 text-gray-400">
+                                {s.type}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                  s.lastSyncStatus === 'SUCCESS'
+                                    ? 'bg-green-500/20 text-green-400'
+                                    : s.lastSyncStatus === 'FAILED'
+                                    ? 'bg-red-500/20 text-red-400'
+                                    : 'bg-gray-800 text-gray-400'
+                                }`}
+                              >
+                                {s.lastSyncStatus || 'NON SYNCHRO'}
+                              </span>
                             </div>
-
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleSyncSourceNow(s.id)}
-                                className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs flex items-center gap-1 transition"
-                                title="Synchroniser maintenant"
-                              >
-                                <RotateCw className="w-3.5 h-3.5 text-blue-400" />
-                                <span>Synchroniser</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteSource(s.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-400 rounded-lg transition"
-                                title="Supprimer la source"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                            {s.url && (
+                              <p className="text-[11px] text-gray-400 truncate max-w-sm font-mono">{s.url}</p>
+                            )}
+                            <div className="text-[10px] text-gray-500 flex flex-wrap gap-3">
+                              <span>{s._count?.channels || 0} chaînes liées</span>
+                              {s.lastSyncAt && (
+                                <span>Dernière synchro : {new Date(s.lastSyncAt).toLocaleString('fr-FR')}</span>
+                              )}
                             </div>
                           </div>
-                        ))}
+
+                          <div className="flex flex-wrap items-center gap-2 shrink-0">
+                            {/* Sélecteur de fréquence d'auto-synchronisation */}
+                            <div className="flex items-center gap-1.5 bg-gray-800/60 p-1.5 rounded-lg border border-gray-700/60 text-[11px]">
+                              <input
+                                type="checkbox"
+                                checked={s.autoSync}
+                                onChange={(e) =>
+                                  handleUpdateSourceAutoSync(s.id, e.target.checked, s.syncIntervalHours || 24)
+                                }
+                                className="rounded accent-blue-600 cursor-pointer"
+                                title="Activer / désactiver la synchronisation automatique"
+                              />
+                              <span className="text-gray-400">Auto :</span>
+                              <select
+                                value={s.syncIntervalHours || 24}
+                                disabled={!s.autoSync}
+                                onChange={(e) =>
+                                  handleUpdateSourceAutoSync(s.id, s.autoSync, Number(e.target.value))
+                                }
+                                className="bg-gray-900 border border-gray-700 rounded px-1.5 py-0.5 text-white disabled:opacity-40 text-xs cursor-pointer"
+                              >
+                                <option value={1}>1h</option>
+                                <option value={2}>2h</option>
+                                <option value={4}>4h</option>
+                                <option value={6}>6h</option>
+                                <option value={12}>12h</option>
+                                <option value={24}>24h (1 j)</option>
+                                <option value={48}>48h (2 j)</option>
+                                <option value={168}>7 jours</option>
+                              </select>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSyncSourceNow(s.id)}
+                              className="px-2.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 rounded-lg text-xs flex items-center gap-1 transition"
+                              title="Synchroniser immédiatement"
+                            >
+                              <RotateCw className="w-3.5 h-3.5" />
+                              <span>Synchro</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSource(s.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-400 rounded-lg transition"
+                              title="Supprimer la source"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

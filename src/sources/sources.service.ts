@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { parseM3uContent, ParsedM3uChannel } from './m3u.parser';
 import { validateSafeUrl } from '../common/ssrf.validator';
@@ -6,10 +6,50 @@ import axios from 'axios';
 import { SourceType, Role } from '@prisma/client';
 
 @Injectable()
-export class SourcesService {
+export class SourcesService implements OnApplicationBootstrap {
   private readonly logger = new Logger(SourcesService.name);
+  private autoSyncTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  onApplicationBootstrap() {
+    this.logger.log('Démarrage du planificateur de synchronisation automatique...');
+    // Vérification toutes les 5 minutes
+    this.autoSyncTimer = setInterval(() => {
+      this.checkAndAutoSyncSources().catch((err) => {
+        this.logger.error(`Erreur vérification auto-sync: ${err.message}`);
+      });
+    }, 5 * 60 * 1000);
+
+    // Première vérification 20 secondes après le démarrage
+    setTimeout(() => {
+      this.checkAndAutoSyncSources().catch(() => {});
+    }, 20 * 1000);
+  }
+
+  async checkAndAutoSyncSources() {
+    const sources = await this.prisma.source.findMany({
+      where: { autoSync: true },
+    });
+
+    for (const source of sources) {
+      const intervalHours = source.syncIntervalHours || 24;
+      const lastSync = source.lastSyncAt ? source.lastSyncAt.getTime() : 0;
+      const now = Date.now();
+      const elapsedHours = (now - lastSync) / (1000 * 60 * 60);
+
+      if (elapsedHours >= intervalHours) {
+        this.logger.log(
+          `[Auto-Sync] Synchronisation automatique déclenchée pour "${source.name}" (intervalle: ${intervalHours}h, écoulé: ${elapsedHours.toFixed(1)}h)`,
+        );
+        try {
+          await this.syncSource(source.id);
+        } catch (err: any) {
+          this.logger.error(`[Auto-Sync] Erreur pour "${source.name}": ${err.message}`);
+        }
+      }
+    }
+  }
 
   async listSources() {
     return this.prisma.source.findMany({
@@ -52,6 +92,82 @@ export class SourcesService {
     });
   }
 
+  async updateSource(
+    id: string,
+    data: {
+      name?: string;
+      autoSync?: boolean;
+      syncIntervalHours?: number;
+      url?: string;
+      config?: any;
+    },
+  ) {
+    const updateData: any = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.autoSync !== undefined) updateData.autoSync = data.autoSync;
+    if (data.syncIntervalHours !== undefined) {
+      const hours = Number(data.syncIntervalHours);
+      if (hours > 0) {
+        updateData.syncIntervalHours = hours;
+      }
+    }
+    if (data.url !== undefined) updateData.url = validateSafeUrl(data.url);
+    if (data.config !== undefined) updateData.configJson = JSON.stringify(data.config);
+
+    return this.prisma.source.update({
+      where: { id },
+      data: updateData,
+    });
+  }
+
+  async syncSource(sourceId: string) {
+    const source = await this.prisma.source.findUnique({ where: { id: sourceId } });
+    if (!source) throw new NotFoundException('Source introuvable.');
+
+    if (source.type === SourceType.IPTV_SERVER) {
+      return this.syncIptvServer(sourceId);
+    } else if (source.url) {
+      return this.syncM3uSource(sourceId);
+    }
+    return { success: false, error: 'Source non synchronisable automatiquement.' };
+  }
+
+  async syncM3uSource(sourceId: string) {
+    const source = await this.prisma.source.findUnique({ where: { id: sourceId } });
+    if (!source || !source.url) {
+      throw new BadRequestException('Source M3U sans URL valide.');
+    }
+
+    try {
+      const preview = await this.previewM3u({ url: source.url });
+      const result = await this.importM3uChannels({
+        sourceId: source.id,
+        channels: preview.allChannels,
+      });
+
+      await this.prisma.source.update({
+        where: { id: source.id },
+        data: {
+          lastSyncAt: new Date(),
+          lastSyncStatus: 'SUCCESS',
+          lastSyncError: null,
+        },
+      });
+
+      return { success: true, syncedCount: result.added + result.updated };
+    } catch (err: any) {
+      await this.prisma.source.update({
+        where: { id: source.id },
+        data: {
+          lastSyncAt: new Date(),
+          lastSyncStatus: 'FAILED',
+          lastSyncError: err.message,
+        },
+      });
+      return { success: false, error: err.message };
+    }
+  }
+
   async previewM3u(params: { url?: string; content?: string }): Promise<{
     totalChannels: number;
     categories: string[];
@@ -92,6 +208,8 @@ export class SourcesService {
     sourceId?: string;
     sourceName?: string;
     sourceUrl?: string;
+    autoSync?: boolean;
+    syncIntervalHours?: number;
     channels: ParsedM3uChannel[];
   }) {
     let sourceId = params.sourceId;
@@ -102,6 +220,8 @@ export class SourcesService {
           name: params.sourceName || 'Playlist M3U Importée',
           type: SourceType.M3U,
           url: params.sourceUrl ? validateSafeUrl(params.sourceUrl) : null,
+          autoSync: params.autoSync || false,
+          syncIntervalHours: params.syncIntervalHours ? Number(params.syncIntervalHours) : 24,
           lastSyncAt: new Date(),
           lastSyncStatus: 'SUCCESS',
         },

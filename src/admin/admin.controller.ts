@@ -145,6 +145,8 @@ export class AdminController {
       sourceId?: string;
       sourceName?: string;
       sourceUrl?: string;
+      autoSync?: boolean;
+      syncIntervalHours?: number;
       channels: ParsedM3uChannel[];
     },
   ) {
@@ -164,6 +166,28 @@ export class AdminController {
     },
   ) {
     return this.sourcesService.testIptvServer(body);
+  }
+
+  @ApiOperation({ summary: 'Modifier les paramètres d\'une source (autoSync, syncIntervalHours, etc.)' })
+  @Put('sources/:id')
+  async updateSource(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      name?: string;
+      autoSync?: boolean;
+      syncIntervalHours?: number;
+      url?: string;
+      config?: any;
+    },
+  ) {
+    return this.sourcesService.updateSource(id, body);
+  }
+
+  @ApiOperation({ summary: 'Synchroniser une source (IPTV ou M3U)' })
+  @Post('sources/:id/sync')
+  async syncSource(@Param('id') id: string) {
+    return this.sourcesService.syncSource(id);
   }
 
   @ApiOperation({ summary: 'Synchroniser un serveur IPTV' })
