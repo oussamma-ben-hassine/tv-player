@@ -7,7 +7,6 @@ import { ChannelsModule } from './channels/channels.module';
 import { CategoriesModule } from './categories/categories.module';
 import { FavoritesModule } from './favorites/favorites.module';
 import { PlaybackModule } from './playback/playback.module';
-import { EpgModule } from './epg/epg.module';
 import { SourcesModule } from './sources/sources.module';
 import { AdminModule } from './admin/admin.module';
 import { AppController } from './app.controller';
@@ -20,7 +19,6 @@ import { AppController } from './app.controller';
     CategoriesModule,
     FavoritesModule,
     PlaybackModule,
-    EpgModule,
     SourcesModule,
     AdminModule,
     ServeStaticModule.forRoot({

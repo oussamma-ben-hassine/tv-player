@@ -48,7 +48,6 @@ async function bootstrap() {
     .addTag('Catégories')
     .addTag('Favoris')
     .addTag('Lecture Streaming')
-    .addTag('Guide TV (EPG)')
     .addTag('Administration')
     .build();
 

@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { SourcesService } from '../sources/sources.service';
-import { EpgService } from '../epg/epg.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -17,7 +16,6 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly sourcesService: SourcesService,
-    private readonly epgService: EpgService,
   ) {}
 
   @ApiOperation({ summary: 'Obtenir les statistiques et métriques du dashboard' })
@@ -194,12 +192,5 @@ export class AdminController {
   @Delete('categories/:id')
   async deleteCategory(@Param('id') id: string) {
     return this.adminService.deleteCategory(id);
-  }
-
-  // --- Import XMLTV EPG ---
-  @ApiOperation({ summary: 'Importer un guide XMLTV depuis une URL' })
-  @Post('epg/import-xmltv')
-  async importXmltv(@Body() body: { url: string }) {
-    return this.epgService.importXmltv(body.url);
   }
 }

@@ -4,7 +4,6 @@ import { api } from './services/api';
 import { Header } from './components/layout/Header';
 import { VideoPlayer } from './components/player/VideoPlayer';
 import { ChannelList } from './components/channels/ChannelList';
-import { EpgCard } from './components/epg/EpgCard';
 import { AdminModal } from './components/admin/AdminModal';
 import { Tv, ShieldCheck, Zap, Lock, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
@@ -135,7 +134,7 @@ export const App: React.FC = () => {
             <div>
               <h2 className="text-2xl font-black text-white tracking-tight">Bienvenue sur TV Player</h2>
               <p className="text-sm text-gray-400 mt-2">
-                Plateforme de streaming TV direct, haute fidélité HLS et guide des programmes pour l'écosystème oussamma.tn.
+                Plateforme de streaming TV direct et haute fidélité HLS pour l'écosystème oussamma.tn.
               </p>
             </div>
 
@@ -260,39 +259,53 @@ export const App: React.FC = () => {
             />
           </div>
 
-          {/* Guide des Programmes (EPG) & Métadonnées */}
-          <div className="w-full max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <EpgCard channel={selectedChannel} />
-            </div>
-
-            {/* Fiche descriptive de la chaîne */}
-            {selectedChannel && (
-              <div className="bg-[#111827] border border-gray-800 rounded-xl p-4 shadow-lg space-y-2">
-                <span className="text-[10px] uppercase font-bold text-blue-400 tracking-wider">
-                  À propos de la chaîne
-                </span>
-                <h3 className="text-sm font-bold text-white">{selectedChannel.name}</h3>
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  {selectedChannel.description ||
-                    'Flux direct haute définition retransmis sans interruption.'}
-                </p>
-                <div className="pt-2 border-t border-gray-800 flex flex-wrap gap-2 text-[11px] text-gray-400">
-                  <span className="px-2 py-0.5 bg-gray-800 rounded">Format: HLS</span>
-                  {selectedChannel.language && (
-                    <span className="px-2 py-0.5 bg-gray-800 rounded">
-                      Langue: {selectedChannel.language}
-                    </span>
-                  )}
-                  {selectedChannel.country && (
-                    <span className="px-2 py-0.5 bg-gray-800 rounded">
-                      Pays: {selectedChannel.country}
-                    </span>
-                  )}
+          {/* Fiche descriptive de la chaîne active */}
+          {selectedChannel && (
+            <div className="w-full max-w-6xl mx-auto bg-[#11192b] border border-gray-800 rounded-xl p-4 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {selectedChannel.logoUrl ? (
+                  <img
+                    src={selectedChannel.logoUrl}
+                    alt={selectedChannel.name}
+                    className="w-12 h-12 object-contain bg-gray-900 rounded-lg p-1 border border-gray-800 shrink-0"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-lg bg-blue-600/30 flex items-center justify-center text-sm font-bold text-blue-400 shrink-0">
+                    {selectedChannel.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white">{selectedChannel.name}</h3>
+                    {selectedChannel.category && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-600/20 text-blue-400 font-semibold">
+                        {selectedChannel.category.name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed max-w-2xl">
+                    {selectedChannel.description || 'Flux direct haute définition retransmis sans interruption.'}
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
+
+              <div className="flex items-center gap-2 text-[11px] text-gray-400 shrink-0">
+                {selectedChannel.language && (
+                  <span className="px-2.5 py-1 bg-gray-900 border border-gray-800 rounded-lg">
+                    {selectedChannel.language}
+                  </span>
+                )}
+                {selectedChannel.country && (
+                  <span className="px-2.5 py-1 bg-gray-900 border border-gray-800 rounded-lg">
+                    {selectedChannel.country}
+                  </span>
+                )}
+                <span className="px-2.5 py-1 bg-emerald-950/60 border border-emerald-800/40 text-emerald-400 rounded-lg font-mono font-bold text-xs">
+                  DIRECT LIVE
+                </span>
+              </div>
+            </div>
+          )}
         </main>
       </div>
 

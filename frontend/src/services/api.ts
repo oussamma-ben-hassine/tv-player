@@ -1,4 +1,4 @@
-import { User, Category, Channel, PlaybackSession, ChannelEpgResponse, AdminStats } from '../types';
+import { User, Category, Channel, PlaybackSession, AdminStats } from '../types';
 
 class ApiService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -96,10 +96,6 @@ class ApiService {
       method: 'POST',
       body: JSON.stringify({ channelId, errorMessage, errorCode }),
     });
-  }
-
-  async getEpg(channelId: string): Promise<ChannelEpgResponse> {
-    return this.request<ChannelEpgResponse>(`/api/v1/epg/${channelId}`);
   }
 
   // --- Admin ---

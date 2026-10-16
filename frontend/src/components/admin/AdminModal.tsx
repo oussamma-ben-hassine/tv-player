@@ -687,16 +687,6 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                       </select>
                     </div>
                     <div>
-                      <label className="text-xs text-gray-400 font-medium">Identifiant EPG (tvg-id)</label>
-                      <input
-                        type="text"
-                        value={editingChannel.epgId || ''}
-                        onChange={(e) => setEditingChannel({ ...editingChannel, epgId: e.target.value })}
-                        className="w-full mt-1 px-3 py-1.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white"
-                        placeholder="Ex: france24.fr"
-                      />
-                    </div>
-                    <div>
                       <label className="text-xs text-gray-400 font-medium">Restriction d'accès</label>
                       <select
                         value={editingChannel.minRole || 'USER'}
