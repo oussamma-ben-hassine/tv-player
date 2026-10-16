@@ -172,7 +172,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] flex flex-col overflow-hidden">
+    <div className="h-screen max-h-screen w-screen bg-[#0b0f19] flex flex-col overflow-hidden select-none">
       {/* Barre supérieure */}
       <Header
         user={user}
@@ -185,7 +185,7 @@ export const App: React.FC = () => {
       <div className="flex-1 flex overflow-hidden relative">
         {/* Colonne Gauche : Liste des Chaînes (Desktop & Drawer Mobile) */}
         <div
-          className={`fixed inset-y-14 left-0 z-20 w-80 max-w-[85vw] transform transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 ${
+          className={`fixed inset-y-14 left-0 z-20 w-80 max-w-[85vw] h-[calc(100vh-3.5rem)] transform transition-transform duration-300 ease-in-out lg:static lg:h-full lg:translate-x-0 shrink-0 flex flex-col overflow-hidden ${
             isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'
           }`}
         >

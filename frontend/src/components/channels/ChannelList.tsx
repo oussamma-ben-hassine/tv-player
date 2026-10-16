@@ -34,9 +34,9 @@ export const ChannelList: React.FC<ChannelListProps> = ({
   onToggleFavoritesOnly,
 }) => {
   return (
-    <div className="flex flex-col h-full bg-[#0d1322] border-r border-gray-800/80">
+    <div className="flex flex-col h-full min-h-0 bg-[#0d1322] border-r border-gray-800/80 overflow-hidden">
       {/* Zone de recherche */}
-      <div className="p-3 border-b border-gray-800/80 space-y-3">
+      <div className="p-3 border-b border-gray-800/80 space-y-3 shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
           <input
@@ -67,8 +67,8 @@ export const ChannelList: React.FC<ChannelListProps> = ({
         />
       </div>
 
-      {/* Liste des chaînes défilante */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      {/* Liste des chaînes défilante indépendante */}
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-2">
         {channels.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center text-center p-4 text-gray-500">
             <Tv className="w-10 h-10 mb-2 opacity-40" />
@@ -95,7 +95,7 @@ export const ChannelList: React.FC<ChannelListProps> = ({
       </div>
 
       {/* Pied de liste : compteur */}
-      <div className="p-2.5 text-xs text-center text-gray-500 border-t border-gray-800/80 bg-[#090d18]">
+      <div className="p-2.5 text-xs text-center text-gray-500 border-t border-gray-800/80 bg-[#090d18] shrink-0">
         {channels.length} {channels.length > 1 ? 'chaînes disponibles' : 'chaîne disponible'}
       </div>
     </div>
