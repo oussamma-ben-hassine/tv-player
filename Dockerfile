@@ -1,18 +1,20 @@
 # Stage 1: Build Frontend (React + Vite + Tailwind)
 FROM node:20-alpine AS frontend-builder
+ENV NODE_ENV=development
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+RUN npm install --include=dev
 COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Build Backend (NestJS + TypeScript + Prisma)
 FROM node:20-alpine AS backend-builder
+ENV NODE_ENV=development
 RUN apk add --no-cache openssl
 WORKDIR /app
 COPY package*.json ./
 COPY prisma/ ./prisma/
-RUN npm install
+RUN npm install --include=dev
 RUN npx prisma generate
 COPY tsconfig*.json ./
 COPY src/ ./src/
