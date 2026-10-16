@@ -38,6 +38,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tv-http.entrypoints=http"
+      - "traefik.http.routers.tv-http.rule=Host(`tv.oussamma.tn`)"
+      - "traefik.http.routers.tv-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.tv-https.entrypoints=https"
+      - "traefik.http.routers.tv-https.rule=Host(`tv.oussamma.tn`)"
+      - "traefik.http.routers.tv-https.tls=true"
+      - "traefik.http.routers.tv-https.tls.certresolver=letsencrypt"
+      - "traefik.http.services.tv-https.loadbalancer.server.port=3000"
+      - "traefik.docker.network=coolify"
     networks:
       - default
       - coolify
