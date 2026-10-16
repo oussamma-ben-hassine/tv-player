@@ -1,0 +1,164 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SourceType {
+  MANUAL
+  M3U
+  IPTV_SERVER
+  CUSTOM
+}
+
+model User {
+  id          String       @id @default(uuid())
+  ssoId       String       @unique
+  email       String       @unique
+  name        String
+  avatarUrl   String?
+  role        Role         @default(USER)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  preferences Preference?
+  favorites   Favorite[]
+
+  @@map("users")
+}
+
+model Preference {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastChannelId      String?
+  favoriteCategoryId String?
+  volume             Int      @default(80)
+  muted              Boolean  @default(false)
+  theme              String   @default("dark")
+  updatedAt          DateTime @updatedAt
+
+  @@map("preferences")
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  slug      String    @unique
+  icon      String?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  channels  Channel[]
+
+  @@map("categories")
+}
+
+model Source {
+  id                String     @id @default(uuid())
+  name              String
+  type              SourceType @default(MANUAL)
+  url               String?
+  autoSync          Boolean    @default(false)
+  syncIntervalHours Int        @default(24)
+  lastSyncAt        DateTime?
+  lastSyncStatus    String?
+  lastSyncError     String?
+  configJson        String?    @db.Text
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  channels          Channel[]
+
+  @@map("sources")
+}
+
+model Channel {
+  id              String      @id @default(uuid())
+  name            String
+  logoUrl         String?
+  streamUrl       String
+  streamType      String      @default("HLS")
+  categoryId      String?
+  category        Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  sourceId        String?
+  source          Source?     @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  sourceChannelId String?
+  epgId           String?
+  language        String?
+  country         String?
+  description     String?
+  sortOrder       Int         @default(0)
+  active          Boolean     @default(true)
+  isPublic        Boolean     @default(true)
+  minRole         Role        @default(USER)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  favorites       Favorite[]
+
+  @@index([categoryId])
+  @@index([sourceId])
+  @@index([active])
+  @@index([sortOrder])
+  @@map("channels")
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, channelId])
+  @@map("favorites")
+}
+
+model PlaybackSession {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  channelId String
+  streamUrl String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([expiresAt])
+  @@map("playback_sessions")
+}
+
+model PlaybackError {
+  id           String   @id @default(uuid())
+  channelId    String
+  channelName  String
+  errorMessage String
+  errorCode    String?
+  createdAt    DateTime @default(now())
+
+  @@map("playback_errors")
+}
+
+model EpgProgram {
+  id           String   @id @default(uuid())
+  channelEpgId String
+  title        String
+  description  String?
+  startTime    DateTime
+  endTime      DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([channelEpgId, startTime])
+  @@map("epg_programs")
+}

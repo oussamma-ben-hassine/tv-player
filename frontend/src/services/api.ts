@@ -1,0 +1,186 @@
+import { User, Category, Channel, PlaybackSession, ChannelEpgResponse, AdminStats } from '../types';
+
+class ApiService {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    const res = await fetch(endpoint, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      credentials: 'include',
+    });
+
+    if (!res.ok) {
+      let errorMsg = 'Erreur serveur';
+      try {
+        const errorData = await res.json();
+        errorMsg = errorData.message || errorData.error || `Erreur HTTP ${res.status}`;
+      } catch {
+        errorMsg = `Erreur HTTP ${res.status}`;
+      }
+      throw new Error(errorMsg);
+    }
+
+    return res.json();
+  }
+
+  // --- Auth & User ---
+  async getMe(): Promise<{ authenticated: boolean; user: User | null }> {
+    return this.request<{ authenticated: boolean; user: User | null }>('/api/v1/me');
+  }
+
+  async updatePreferences(prefs: {
+    lastChannelId?: string;
+    favoriteCategoryId?: string;
+    volume?: number;
+    muted?: boolean;
+    theme?: string;
+  }) {
+    return this.request('/api/v1/preferences', {
+      method: 'PATCH',
+      body: JSON.stringify(prefs),
+    });
+  }
+
+  // --- Channels & Categories ---
+  async getChannels(params?: {
+    search?: string;
+    categoryId?: string;
+    onlyFavorites?: boolean;
+  }): Promise<Channel[]> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.categoryId) query.set('categoryId', params.categoryId);
+    if (params?.onlyFavorites) query.set('onlyFavorites', 'true');
+
+    return this.request<Channel[]>(`/api/v1/channels?${query.toString()}`);
+  }
+
+  async getChannel(id: string): Promise<Channel> {
+    return this.request<Channel>(`/api/v1/channels/${id}`);
+  }
+
+  async getCategories(): Promise<Category[]> {
+    return this.request<Category[]>('/api/v1/categories');
+  }
+
+  // --- Favorites ---
+  async getFavorites(): Promise<Channel[]> {
+    return this.request<Channel[]>('/api/v1/favorites');
+  }
+
+  async addFavorite(channelId: string) {
+    return this.request('/api/v1/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ channelId }),
+    });
+  }
+
+  async removeFavorite(channelId: string) {
+    return this.request(`/api/v1/favorites/${channelId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // --- Playback & EPG ---
+  async createPlaybackSession(channelId: string): Promise<PlaybackSession> {
+    return this.request<PlaybackSession>('/api/v1/playback-sessions', {
+      method: 'POST',
+      body: JSON.stringify({ channelId }),
+    });
+  }
+
+  async reportPlaybackError(channelId: string, errorMessage: string, errorCode?: string) {
+    return this.request('/api/v1/playback-errors', {
+      method: 'POST',
+      body: JSON.stringify({ channelId, errorMessage, errorCode }),
+    });
+  }
+
+  async getEpg(channelId: string): Promise<ChannelEpgResponse> {
+    return this.request<ChannelEpgResponse>(`/api/v1/epg/${channelId}`);
+  }
+
+  // --- Admin ---
+  async getAdminDashboard(): Promise<AdminStats> {
+    return this.request<AdminStats>('/api/v1/admin/dashboard');
+  }
+
+  async adminListChannels(params?: { search?: string; categoryId?: string }): Promise<Channel[]> {
+    const q = new URLSearchParams();
+    if (params?.search) q.set('search', params.search);
+    if (params?.categoryId) q.set('categoryId', params.categoryId);
+    return this.request<Channel[]>(`/api/v1/admin/channels?${q.toString()}`);
+  }
+
+  async adminCreateChannel(data: Partial<Channel>): Promise<Channel> {
+    return this.request<Channel>('/api/v1/admin/channels', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminUpdateChannel(id: string, data: Partial<Channel>): Promise<Channel> {
+    return this.request<Channel>(`/api/v1/admin/channels/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminDeleteChannel(id: string) {
+    return this.request(`/api/v1/admin/channels/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async adminToggleChannel(id: string) {
+    return this.request(`/api/v1/admin/channels/${id}/toggle`, {
+      method: 'PATCH',
+    });
+  }
+
+  async adminPreviewM3u(data: { url?: string; content?: string }) {
+    return this.request<{
+      totalChannels: number;
+      categories: string[];
+      sample: any[];
+      allChannels: any[];
+    }>('/api/v1/admin/sources/m3u/preview', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminImportM3u(data: {
+    sourceName?: string;
+    sourceUrl?: string;
+    channels: any[];
+  }) {
+    return this.request('/api/v1/admin/sources/m3u/import', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminSyncIptv(sourceId: string) {
+    return this.request(`/api/v1/admin/sources/${sourceId}/sync-iptv`, {
+      method: 'POST',
+    });
+  }
+
+  async adminCreateCategory(data: { name: string; icon?: string; sortOrder?: number }) {
+    return this.request('/api/v1/admin/categories', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminDeleteCategory(id: string) {
+    return this.request(`/api/v1/admin/categories/${id}`, {
+      method: 'DELETE',
+    });
+  }
+}
+
+export const api = new ApiService();
