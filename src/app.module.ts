@@ -24,7 +24,8 @@ import { AppController } from './app.controller';
     SourcesModule,
     AdminModule,
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'public'),
+      rootPath: join(__dirname, 'public'),
+      serveRoot: '/',
       exclude: ['/api/(.*)', '/auth/(.*)', '/health'],
     }),
   ],

@@ -37,6 +37,7 @@ RUN npx prisma generate
 
 COPY --from=backend-builder /app/dist ./dist
 COPY --from=frontend-builder /app/dist/public ./dist/public
+COPY --from=frontend-builder /app/dist/public ./public
 COPY scripts/ ./scripts/
 
 RUN chmod +x ./scripts/*.sh
