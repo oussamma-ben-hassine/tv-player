@@ -92,6 +92,12 @@ export class AdminController {
     return this.adminService.deleteChannel(id);
   }
 
+  @ApiOperation({ summary: 'Supprimer plusieurs chaînes simultanément' })
+  @Post('channels/batch-delete')
+  async batchDeleteChannels(@Body() body: { ids: string[] }) {
+    return this.adminService.deleteChannelsBatch(body.ids);
+  }
+
   @ApiOperation({ summary: 'Activer ou désactiver une chaîne' })
   @Patch('channels/:id/toggle')
   async toggleChannel(@Param('id') id: string) {

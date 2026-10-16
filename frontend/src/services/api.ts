@@ -134,6 +134,13 @@ class ApiService {
     });
   }
 
+  async adminBatchDeleteChannels(ids: string[]): Promise<{ count: number }> {
+    return this.request<{ count: number }>('/api/v1/admin/channels/batch-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    });
+  }
+
   async adminToggleChannel(id: string) {
     return this.request(`/api/v1/admin/channels/${id}/toggle`, {
       method: 'PATCH',

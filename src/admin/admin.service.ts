@@ -155,9 +155,25 @@ export class AdminService {
   }
 
   async deleteChannel(id: string) {
+    await this.prisma.favorite.deleteMany({
+      where: { channelId: id },
+    });
     return this.prisma.channel.delete({
       where: { id },
     });
+  }
+
+  async deleteChannelsBatch(ids: string[]) {
+    if (!ids || ids.length === 0) {
+      return { count: 0 };
+    }
+    await this.prisma.favorite.deleteMany({
+      where: { channelId: { in: ids } },
+    });
+    const result = await this.prisma.channel.deleteMany({
+      where: { id: { in: ids } },
+    });
+    return { count: result.count };
   }
 
   async toggleChannelActive(id: string) {

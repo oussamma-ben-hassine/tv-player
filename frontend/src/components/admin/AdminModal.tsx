@@ -16,6 +16,8 @@ import {
   Play,
   FileText,
   Server,
+  CheckSquare,
+  Search,
 } from 'lucide-react';
 import { Channel, Category, AdminStats } from '../../types';
 import { api } from '../../services/api';
@@ -42,6 +44,11 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   // Formulaire d'ajout / édition de chaîne
   const [editingChannel, setEditingChannel] = useState<Partial<Channel> | null>(null);
   const [isChannelFormOpen, setIsChannelFormOpen] = useState<boolean>(false);
+
+  // Sélection et suppression multiple de chaînes
+  const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
+  const [isBatchDeleting, setIsBatchDeleting] = useState<boolean>(false);
+  const [channelSearchFilter, setChannelSearchFilter] = useState<string>('');
 
   // Formulaire d'import M3U
   const [m3uUrl, setM3uUrl] = useState<string>('');
@@ -129,12 +136,53 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette chaîne ?')) return;
     try {
       await api.adminDeleteChannel(id);
+      setSelectedChannelIds((prev) => prev.filter((i) => i !== id));
       loadChannels();
       loadStats();
       onRefreshData();
       showFeedback('success', 'Chaîne supprimée.');
     } catch (err: any) {
       showFeedback('error', err.message);
+    }
+  };
+
+  const handleSelectAllChannels = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedChannelIds(filteredChannels.map((c) => c.id));
+    } else {
+      setSelectedChannelIds([]);
+    }
+  };
+
+  const handleToggleSelectChannel = (id: string) => {
+    setSelectedChannelIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBatchDeleteChannels = async () => {
+    if (selectedChannelIds.length === 0) return;
+    const count = selectedChannelIds.length;
+    if (
+      !window.confirm(
+        `Êtes-vous sûr de vouloir supprimer définitivement ${count} chaîne${count > 1 ? 's' : ''} ? Cette action est irréversible.`
+      )
+    ) {
+      return;
+    }
+
+    setIsBatchDeleting(true);
+    try {
+      const res = await api.adminBatchDeleteChannels(selectedChannelIds);
+      showFeedback('success', `${res.count} chaîne(s) supprimée(s) avec succès.`);
+      setSelectedChannelIds([]);
+      loadChannels();
+      loadStats();
+      onRefreshData();
+    } catch (err: any) {
+      showFeedback('error', err.message || 'Erreur lors de la suppression multiple.');
+    } finally {
+      setIsBatchDeleting(false);
     }
   };
 
@@ -332,6 +380,16 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     }
   };
 
+  const filteredChannels = channels.filter((c) => {
+    if (!channelSearchFilter) return true;
+    const q = channelSearchFilter.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (c.category?.name || '').toLowerCase().includes(q) ||
+      c.streamUrl.toLowerCase().includes(q)
+    );
+  });
+
   if (!isOpen) return null;
 
   return (
@@ -498,26 +556,78 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           {/* TAB 2: GESTION DES CHAÎNES */}
           {activeTab === 'channels' && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-gray-200">Liste des chaînes TV</h3>
-                <button
-                  onClick={() => {
-                    setEditingChannel({
-                      name: '',
-                      streamUrl: '',
-                      streamType: 'HLS',
-                      active: true,
-                      isPublic: true,
-                      minRole: 'USER',
-                    });
-                    setIsChannelFormOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Ajouter une chaîne</span>
-                </button>
+              {/* Barre d'outils : Recherche, Actions groupées et Ajout */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={channelSearchFilter}
+                    onChange={(e) => setChannelSearchFilter(e.target.value)}
+                    placeholder="Filtrer les chaînes (nom, flux, catégorie)..."
+                    className="w-full pl-9 pr-3 py-1.5 bg-[#11192b] border border-gray-800 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  />
+                  {channelSearchFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setChannelSearchFilter('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setEditingChannel({
+                        name: '',
+                        streamUrl: '',
+                        streamType: 'HLS',
+                        active: true,
+                        isPublic: true,
+                        minRole: 'USER',
+                      });
+                      setIsChannelFormOpen(true);
+                    }}
+                    className="flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Ajouter une chaîne</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Barre d'action groupée (Suppression multiple) */}
+              {selectedChannelIds.length > 0 && (
+                <div className="flex items-center justify-between p-3 bg-red-950/40 border border-red-900/60 rounded-xl text-xs text-red-200 animate-fade-in shadow-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-4 h-4 text-red-400" />
+                    <span className="font-semibold">
+                      {selectedChannelIds.length} chaîne{selectedChannelIds.length > 1 ? 's' : ''} sélectionnée{selectedChannelIds.length > 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedChannelIds([])}
+                      className="px-2.5 py-1 text-gray-400 hover:text-white rounded bg-gray-900/80 border border-gray-800 transition"
+                    >
+                      Désélectionner tout
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isBatchDeleting}
+                      onClick={handleBatchDeleteChannels}
+                      className="flex items-center gap-1.5 px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold rounded shadow transition disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>{isBatchDeleting ? 'Suppression en cours...' : `Supprimer la sélection (${selectedChannelIds.length})`}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Formulaire modal interne pour ajouter/éditer */}
               {isChannelFormOpen && editingChannel && (
@@ -622,6 +732,18 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#162138] text-gray-400 uppercase font-mono border-b border-gray-800">
                     <tr>
+                      <th className="p-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={
+                            filteredChannels.length > 0 &&
+                            filteredChannels.every((c) => selectedChannelIds.includes(c.id))
+                          }
+                          onChange={handleSelectAllChannels}
+                          className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
+                          title="Tout sélectionner / désélectionner"
+                        />
+                      </th>
                       <th className="p-3">Chaîne</th>
                       <th className="p-3 hidden sm:table-cell">Catégorie</th>
                       <th className="p-3 hidden md:table-cell">Flux</th>
@@ -630,61 +752,87 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800/60">
-                    {channels.map((ch) => (
-                      <tr key={ch.id} className="hover:bg-gray-800/30 transition">
-                        <td className="p-3 flex items-center gap-2.5">
-                          {ch.logoUrl ? (
-                            <img
-                              src={ch.logoUrl}
-                              alt={ch.name}
-                              className="w-7 h-7 object-contain bg-gray-900 rounded p-0.5 border border-gray-800"
-                            />
-                          ) : (
-                            <div className="w-7 h-7 rounded bg-blue-600/30 flex items-center justify-center text-[10px] font-bold text-blue-400">
-                              {ch.name.slice(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                          <span className="font-semibold text-gray-100">{ch.name}</span>
-                        </td>
-                        <td className="p-3 hidden sm:table-cell text-gray-400">
-                          {ch.category?.name || 'Généraliste'}
-                        </td>
-                        <td className="p-3 hidden md:table-cell text-gray-400 truncate max-w-xs font-mono text-[11px]">
-                          {ch.streamUrl}
-                        </td>
-                        <td className="p-3">
-                          <button
-                            onClick={() => handleToggleChannel(ch.id)}
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition ${
-                              ch.active
-                                ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                            }`}
-                          >
-                            {ch.active ? 'Actif' : 'Inactif'}
-                          </button>
-                        </td>
-                        <td className="p-3 text-right space-x-1">
-                          <button
-                            onClick={() => {
-                              setEditingChannel(ch);
-                              setIsChannelFormOpen(true);
-                            }}
-                            className="p-1.5 text-gray-400 hover:text-blue-400 rounded transition"
-                            title="Modifier"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteChannel(ch.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-400 rounded transition"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                    {filteredChannels.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-6 text-center text-gray-500 italic">
+                          {channelSearchFilter
+                            ? 'Aucune chaîne ne correspond à votre recherche.'
+                            : 'Aucune chaîne configurée. Cliquez sur "Ajouter une chaîne" ou importez une playlist.'}
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      filteredChannels.map((ch) => {
+                        const isSelected = selectedChannelIds.includes(ch.id);
+                        return (
+                          <tr
+                            key={ch.id}
+                            className={`transition ${
+                              isSelected ? 'bg-blue-950/30 hover:bg-blue-950/40' : 'hover:bg-gray-800/30'
+                            }`}
+                          >
+                            <td className="p-3 w-10 text-center">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleSelectChannel(ch.id)}
+                                className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-0 cursor-pointer accent-blue-600"
+                              />
+                            </td>
+                            <td className="p-3 flex items-center gap-2.5">
+                              {ch.logoUrl ? (
+                                <img
+                                  src={ch.logoUrl}
+                                  alt={ch.name}
+                                  className="w-7 h-7 object-contain bg-gray-900 rounded p-0.5 border border-gray-800"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded bg-blue-600/30 flex items-center justify-center text-[10px] font-bold text-blue-400">
+                                  {ch.name.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="font-semibold text-gray-100">{ch.name}</span>
+                            </td>
+                            <td className="p-3 hidden sm:table-cell text-gray-400">
+                              {ch.category?.name || 'Généraliste'}
+                            </td>
+                            <td className="p-3 hidden md:table-cell text-gray-400 truncate max-w-xs font-mono text-[11px]">
+                              {ch.streamUrl}
+                            </td>
+                            <td className="p-3">
+                              <button
+                                onClick={() => handleToggleChannel(ch.id)}
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition ${
+                                  ch.active
+                                    ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                                }`}
+                              >
+                                {ch.active ? 'Actif' : 'Inactif'}
+                              </button>
+                            </td>
+                            <td className="p-3 text-right space-x-1">
+                              <button
+                                onClick={() => {
+                                  setEditingChannel(ch);
+                                  setIsChannelFormOpen(true);
+                                }}
+                                className="p-1.5 text-gray-400 hover:text-blue-400 rounded transition"
+                                title="Modifier"
+                              >
+                                <Edit className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteChannel(ch.id)}
+                                className="p-1.5 text-gray-400 hover:text-red-400 rounded transition"
+                                title="Supprimer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
