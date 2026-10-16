@@ -156,8 +156,8 @@ class ApiService {
     sourceName?: string;
     sourceUrl?: string;
     channels: any[];
-  }) {
-    return this.request('/api/v1/admin/sources/m3u/import', {
+  }): Promise<{ added: number; updated: number; totalProcessed: number }> {
+    return this.request<{ added: number; updated: number; totalProcessed: number }>('/api/v1/admin/sources/m3u/import', {
       method: 'POST',
       body: JSON.stringify(data),
     });

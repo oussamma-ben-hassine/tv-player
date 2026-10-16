@@ -161,7 +161,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     setLoading(true);
     try {
       const channelsToImport = selectedM3uIndices.map((idx) => m3uPreview.allChannels[idx]);
-      const res = await api.adminImportM3u({
+      const res: any = await api.adminImportM3u({
         sourceName: m3uSourceName,
         sourceUrl: m3uUrl || undefined,
         channels: channelsToImport,
