@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tv, Shield, LogOut, Menu, User as UserIcon } from 'lucide-react';
+import { Tv, Film, Shield, LogOut, Menu, User as UserIcon } from 'lucide-react';
 import { User } from '../../types';
 
 interface HeaderProps {
@@ -7,36 +7,68 @@ interface HeaderProps {
   onOpenAdmin: () => void;
   onToggleSidebar: () => void;
   isSidebarOpen: boolean;
+  activeSection: 'live' | 'vod';
+  onSectionChange: (section: 'live' | 'vod') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   user,
   onOpenAdmin,
   onToggleSidebar,
+  activeSection,
+  onSectionChange,
 }) => {
   return (
-    <header className="h-14 bg-[#0d1322] border-b border-gray-800/80 px-4 flex items-center justify-between z-30">
+    <header className="h-14 bg-[#0d1322] border-b border-gray-800/80 px-3 sm:px-4 flex items-center justify-between z-30 shrink-0">
       {/* Gauche : Logo et Menu mobile */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onToggleSidebar}
-          className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition lg:hidden"
-          title="Menu des chaînes"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+      <div className="flex items-center gap-2 sm:gap-3">
+        {activeSection === 'live' && (
+          <button
+            onClick={onToggleSidebar}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition lg:hidden"
+            title="Menu des chaînes"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
             <Tv className="w-4 h-4" />
           </div>
-          <div>
-            <h1 className="text-base font-black tracking-tight text-white flex items-center gap-1.5 leading-none">
+          <div className="hidden xs:block">
+            <h1 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-1.5 leading-none">
               <span>TV</span>
               <span className="text-blue-500">PLAYER</span>
             </h1>
           </div>
         </div>
+      </div>
+
+      {/* Centre : Commutateur Direct TV / VOD */}
+      <div className="flex items-center gap-1 p-1 bg-gray-900/90 rounded-xl border border-gray-800">
+        <button
+          onClick={() => onSectionChange('live')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+            activeSection === 'live'
+              ? 'bg-blue-600 text-white shadow'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          <Tv className="w-3.5 h-3.5" />
+          <span>Direct TV</span>
+        </button>
+        <button
+          onClick={() => onSectionChange('vod')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+            activeSection === 'vod'
+              ? 'bg-blue-600 text-white shadow'
+              : 'text-gray-400 hover:text-white'
+          }`}
+        >
+          <Film className="w-3.5 h-3.5" />
+          <span>Films & Séries</span>
+        </button>
       </div>
 
       {/* Droite : Profil & Administration */}

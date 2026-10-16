@@ -1,4 +1,4 @@
-import { User, Category, Channel, PlaybackSession, AdminStats } from '../types';
+import { User, Category, Channel, PlaybackSession, AdminStats, VodItem } from '../types';
 
 class ApiService {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -250,6 +250,59 @@ class ApiService {
   async adminDeleteCategory(id: string) {
     return this.request(`/api/v1/admin/categories/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  // --- VOD (Films & Séries) ---
+  async getVodItems(params?: { type?: string; genre?: string; search?: string }): Promise<VodItem[]> {
+    const query = new URLSearchParams();
+    if (params?.type) query.set('type', params.type);
+    if (params?.genre) query.set('genre', params.genre);
+    if (params?.search) query.set('search', params.search);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return this.request<VodItem[]>(`/api/v1/vod${qs}`);
+  }
+
+  async getVodGenres(): Promise<string[]> {
+    return this.request<string[]>('/api/v1/vod/genres');
+  }
+
+  async getVodById(id: string): Promise<VodItem> {
+    return this.request<VodItem>(`/api/v1/vod/${id}`);
+  }
+
+  async adminListAllVod(params?: { search?: string; type?: string }): Promise<VodItem[]> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.type) query.set('type', params.type);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return this.request<VodItem[]>(`/api/v1/admin/vod${qs}`);
+  }
+
+  async adminCreateVod(data: Partial<VodItem>): Promise<VodItem> {
+    return this.request<VodItem>('/api/v1/admin/vod', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminUpdateVod(id: string, data: Partial<VodItem>): Promise<VodItem> {
+    return this.request<VodItem>(`/api/v1/admin/vod/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async adminDeleteVod(id: string) {
+    return this.request(`/api/v1/admin/vod/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async adminBatchDeleteVod(ids: string[]): Promise<{ count: number }> {
+    return this.request<{ count: number }>('/api/v1/admin/vod/batch-delete', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
     });
   }
 }

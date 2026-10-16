@@ -18,8 +18,9 @@ import {
   Server,
   CheckSquare,
   Search,
+  Film,
 } from 'lucide-react';
-import { Channel, Category, AdminStats } from '../../types';
+import { Channel, Category, AdminStats, VodItem } from '../../types';
 import { api } from '../../services/api';
 
 interface AdminModalProps {
@@ -35,7 +36,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   categories,
   onRefreshData,
 }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'channels' | 'sources' | 'categories'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'channels' | 'sources' | 'categories' | 'vod'>('dashboard');
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -49,6 +50,23 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [selectedChannelIds, setSelectedChannelIds] = useState<string[]>([]);
   const [isBatchDeleting, setIsBatchDeleting] = useState<boolean>(false);
   const [channelSearchFilter, setChannelSearchFilter] = useState<string>('');
+
+  // VOD Admin State
+  const [vodList, setVodList] = useState<VodItem[]>([]);
+  const [vodForm, setVodForm] = useState<Partial<VodItem>>({
+    title: '',
+    type: 'movie',
+    streamUrl: '',
+    posterUrl: '',
+    backdropUrl: '',
+    genre: 'Action',
+    year: 2024,
+    description: '',
+    duration: 110,
+    rating: 8.0,
+    active: true,
+  });
+  const [isVodFormOpen, setIsVodFormOpen] = useState<boolean>(false);
 
   // Formulaire d'import M3U
   const [m3uUrl, setM3uUrl] = useState<string>('');
@@ -88,6 +106,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       loadStats();
       loadChannels();
       loadSources();
+      loadVodItems();
     }
   }, [isOpen]);
 
@@ -97,6 +116,60 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       setExistingSources(list);
     } catch (err: any) {
       console.error(err);
+    }
+  };
+
+  const loadVodItems = async () => {
+    try {
+      const items = await api.getVodItems();
+      setVodList(items);
+    } catch (err: any) {
+      console.error('Erreur chargement VOD:', err);
+    }
+  };
+
+  const handleCreateVod = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vodForm.title || !vodForm.streamUrl) {
+      showFeedback('error', 'Le titre et l\'URL du flux vidéo sont obligatoires.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.adminCreateVod(vodForm);
+      showFeedback('success', 'Titre VOD ajouté avec succès.');
+      setIsVodFormOpen(false);
+      setVodForm({
+        title: '',
+        type: 'movie',
+        streamUrl: '',
+        posterUrl: '',
+        backdropUrl: '',
+        genre: 'Action',
+        year: 2024,
+        description: '',
+        duration: 110,
+        rating: 8.0,
+        active: true,
+      });
+      loadVodItems();
+      onRefreshData();
+    } catch (err: any) {
+      showFeedback('error', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteVod = async (id: string) => {
+    if (!window.confirm('Supprimer ce contenu VOD ?')) return;
+    try {
+      await api.adminDeleteVod(id);
+      showFeedback('success', 'Contenu VOD supprimé.');
+      loadVodItems();
+      onRefreshData();
+    } catch (err: any) {
+      showFeedback('error', err.message);
     }
   };
 
@@ -493,6 +566,17 @@ export const AdminModal: React.FC<AdminModalProps> = ({
           >
             <FolderTree className="w-4 h-4" />
             <span>Catégories</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('vod')}
+            className={`flex items-center gap-2 py-3 px-4 border-b-2 text-xs font-semibold transition ${
+              activeTab === 'vod'
+                ? 'border-blue-500 text-blue-400 bg-blue-500/10'
+                : 'border-transparent text-gray-400 hover:text-gray-200'
+            }`}
+          >
+            <Film className="w-4 h-4" />
+            <span>VOD & Films ({vodList.length})</span>
           </button>
         </div>
 
@@ -1340,6 +1424,185 @@ export const AdminModal: React.FC<AdminModalProps> = ({
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: VOD & FILMS */}
+          {activeTab === 'vod' && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-bold text-white">Catalogue VOD (Films & Séries)</h3>
+                  <p className="text-xs text-gray-400">Gérez les titres disponibles dans la section VOD</p>
+                </div>
+                <button
+                  onClick={() => setIsVodFormOpen(!isVodFormOpen)}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-purple-600/20"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{isVodFormOpen ? 'Fermer le formulaire' : 'Ajouter un titre VOD'}</span>
+                </button>
+              </div>
+
+              {/* Formulaire d'ajout VOD */}
+              {isVodFormOpen && (
+                <form
+                  onSubmit={handleCreateVod}
+                  className="p-5 bg-[#131d31] border border-purple-500/30 rounded-xl space-y-4"
+                >
+                  <h4 className="text-sm font-bold text-white">Nouveau Film ou Série</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-300 block mb-1">Titre *</label>
+                      <input
+                        type="text"
+                        required
+                        value={vodForm.title || ''}
+                        onChange={(e) => setVodForm({ ...vodForm, title: e.target.value })}
+                        placeholder="Ex: Big Buck Bunny"
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-300 block mb-1">Type *</label>
+                      <select
+                        value={vodForm.type || 'movie'}
+                        onChange={(e) => setVodForm({ ...vodForm, type: e.target.value as any })}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white"
+                      >
+                        <option value="movie">Film</option>
+                        <option value="series">Série</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-300 block mb-1">Genre</label>
+                      <input
+                        type="text"
+                        value={vodForm.genre || ''}
+                        onChange={(e) => setVodForm({ ...vodForm, genre: e.target.value })}
+                        placeholder="Ex: Animation, Sci-Fi"
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] font-semibold text-gray-300 block mb-1">URL Flux Vidéo (HLS / MP4) *</label>
+                      <input
+                        type="url"
+                        required
+                        value={vodForm.streamUrl || ''}
+                        onChange={(e) => setVodForm({ ...vodForm, streamUrl: e.target.value })}
+                        placeholder="https://.../video.mp4 ou .m3u8"
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-300 block mb-1">Année</label>
+                      <input
+                        type="number"
+                        value={vodForm.year || 2024}
+                        onChange={(e) => setVodForm({ ...vodForm, year: parseInt(e.target.value) || 2024 })}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="text-[11px] font-semibold text-gray-300 block mb-1">URL Affiche (Poster)</label>
+                      <input
+                        type="url"
+                        value={vodForm.posterUrl || ''}
+                        onChange={(e) => setVodForm({ ...vodForm, posterUrl: e.target.value })}
+                        placeholder="https://.../poster.jpg"
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-gray-300 block mb-1">Durée (minutes)</label>
+                      <input
+                        type="number"
+                        value={vodForm.duration || 100}
+                        onChange={(e) => setVodForm({ ...vodForm, duration: parseInt(e.target.value) || 0 })}
+                        className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-semibold text-gray-300 block mb-1">Synopsis / Description</label>
+                    <textarea
+                      rows={2}
+                      value={vodForm.description || ''}
+                      onChange={(e) => setVodForm({ ...vodForm, description: e.target.value })}
+                      placeholder="Résumé du film..."
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsVodFormOpen(false)}
+                      className="px-3 py-2 bg-gray-800 text-gray-300 rounded-lg text-xs hover:bg-gray-700"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold shadow-md shadow-purple-600/30"
+                    >
+                      Enregistrer le titre VOD
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Liste des titres VOD */}
+              <div className="space-y-3">
+                {vodList.length === 0 ? (
+                  <div className="p-8 text-center text-gray-400 bg-[#131d31] rounded-xl border border-gray-800 text-xs">
+                    Aucun titre VOD configuré pour l'instant.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {vodList.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 bg-[#131d31] border border-gray-800 rounded-xl flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {item.posterUrl ? (
+                            <img
+                              src={item.posterUrl}
+                              alt={item.title}
+                              className="w-10 h-14 object-cover rounded-md bg-gray-900 shrink-0 border border-gray-800"
+                            />
+                          ) : (
+                            <div className="w-10 h-14 rounded-md bg-purple-900/30 flex items-center justify-center text-purple-400 shrink-0">
+                              <Film className="w-5 h-5" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h5 className="text-xs font-bold text-white truncate">{item.title}</h5>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-900/40 text-purple-300 font-mono">
+                                {item.type === 'movie' ? 'Film' : 'Série'}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-400 truncate">
+                              {item.genre || 'Général'} {item.year ? `• ${item.year}` : ''} {item.duration ? `• ${item.duration}m` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => handleDeleteVod(item.id)}
+                          className="p-2 text-gray-400 hover:text-red-400 rounded-lg hover:bg-gray-800 transition shrink-0"
+                          title="Supprimer ce titre VOD"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

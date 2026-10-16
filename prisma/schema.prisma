@@ -78,6 +78,7 @@ model Source {
   updatedAt         DateTime   @updatedAt
 
   channels          Channel[]
+  vodItems          VodItem[]
 
   @@map("sources")
 }
@@ -161,4 +162,29 @@ model EpgProgram {
 
   @@index([channelEpgId, startTime])
   @@map("epg_programs")
+}
+
+model VodItem {
+  id          String   @id @default(uuid())
+  title       String
+  type        String   @default("MOVIE") // MOVIE ou SERIES
+  posterUrl   String?
+  backdropUrl String?
+  streamUrl   String
+  streamType  String   @default("MP4") // MP4, HLS, MKV
+  genre       String?  // Ex: Action, Animation, Science-Fiction
+  year        Int?
+  duration    String?  // Ex: 1h 45m
+  rating      String?  // Ex: 8.4
+  overview    String?  @db.Text
+  sourceId    String?
+  source      Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([genre])
+  @@index([active])
+  @@map("vod_items")
 }

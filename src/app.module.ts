@@ -9,6 +9,7 @@ import { FavoritesModule } from './favorites/favorites.module';
 import { PlaybackModule } from './playback/playback.module';
 import { SourcesModule } from './sources/sources.module';
 import { AdminModule } from './admin/admin.module';
+import { VodModule } from './vod/vod.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -21,6 +22,7 @@ import { AppController } from './app.controller';
     PlaybackModule,
     SourcesModule,
     AdminModule,
+    VodModule,
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, 'public'),
       serveRoot: '/',

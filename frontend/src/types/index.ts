@@ -100,3 +100,22 @@ export interface AdminStats {
     _count: { channels: number };
   }[];
 }
+
+export interface VodItem {
+  id: string;
+  title: string;
+  type: 'MOVIE' | 'SERIES';
+  posterUrl?: string;
+  backdropUrl?: string;
+  streamUrl: string;
+  streamType: string;
+  genre?: string;
+  year?: number;
+  duration?: string;
+  rating?: string;
+  overview?: string;
+  sourceId?: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

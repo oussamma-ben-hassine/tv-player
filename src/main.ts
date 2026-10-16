@@ -48,6 +48,7 @@ async function bootstrap() {
     .addTag('Catégories')
     .addTag('Favoris')
     .addTag('Lecture Streaming')
+    .addTag('VOD (Films & Séries)')
     .addTag('Administration')
     .build();
 
