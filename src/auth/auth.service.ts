@@ -169,7 +169,7 @@ export class AuthService {
         email: user.email,
         name: user.name,
         avatarUrl: user.avatarUrl || undefined,
-        role: user.role,
+        role: user.role as Role,
       };
     } catch (error: any) {
       const errDetails = error.response?.data ? JSON.stringify(error.response.data) : error.message;
