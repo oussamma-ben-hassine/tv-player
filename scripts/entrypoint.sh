@@ -1,13 +1,10 @@
 #!/bin/sh
 set -e
 
-echo "[STARTUP] Attente de la disponibilité de PostgreSQL..."
-until npx prisma db push --accept-data-loss; do
-  echo "[STARTUP] PostgreSQL en cours de démarrage, nouvelle tentative dans 2s..."
-  sleep 2
-done
-
-echo "[STARTUP] Migration de la base de données réussie."
+mkdir -p /app/data
+echo "[STARTUP] Initialisation de la base SQLite locale..."
+npx prisma db push --accept-data-loss
+echo "[STARTUP] Base de données SQLite prête."
 
 echo "[STARTUP] Exécution du seed initial..."
 if [ -f "dist/prisma/seed.js" ]; then

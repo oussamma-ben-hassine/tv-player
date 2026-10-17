@@ -27,7 +27,10 @@ RUN apk add --no-cache openssl wget curl
 WORKDIR /app
 
 ENV NODE_ENV=production \
-    PORT=3000
+    PORT=3000 \
+    DATABASE_URL="file:/app/data/tvplayer.db"
+
+RUN mkdir -p /app/data
 
 COPY package*.json ./
 RUN npm install --omit=dev

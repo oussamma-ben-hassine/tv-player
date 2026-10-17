@@ -1,5 +1,5 @@
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -73,7 +73,7 @@ model Source {
   lastSyncAt        DateTime?
   lastSyncStatus    String?
   lastSyncError     String?
-  configJson        String?    @db.Text
+  configJson        String?
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -176,7 +176,7 @@ model VodItem {
   year        Int?
   duration    String?  // Ex: 1h 45m
   rating      String?  // Ex: 8.4
-  overview    String?  @db.Text
+  overview    String?
   sourceId    String?
   source      Source?  @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   active      Boolean  @default(true)

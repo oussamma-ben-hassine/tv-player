@@ -1,30 +1,15 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:17-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: tvplayer
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: tv_secure_postgres_pass_2026
-    volumes:
-      - tv-db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d tvplayer"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    networks:
-      - default
-
   app:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
+    volumes:
+      - tv-player-data:/app/data
     environment:
-      DATABASE_URL: "postgresql://postgres:tv_secure_postgres_pass_2026@db:5432/tvplayer?schema=public"
+      DATABASE_URL: "file:/app/data/tvplayer.db"
       PORT: 3000
       NODE_ENV: production
       APP_URL: "https://tv.oussamma.tn"
@@ -35,15 +20,12 @@ services:
       SSO_SCOPES: "openid profile email"
       ADMIN_EMAILS: "oussammabenhassine@gmail.com"
       SESSION_SECRET: "tv-player-super-session-secret-2026-prod"
-    depends_on:
-      db:
-        condition: service_healthy
     networks:
       - default
       - coolify
 
 volumes:
-  tv-db-data:
+  tv-player-data:
 
 networks:
   default:
