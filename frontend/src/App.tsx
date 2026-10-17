@@ -7,7 +7,7 @@ import { ChannelList } from './components/channels/ChannelList';
 import { AdminModal } from './components/admin/AdminModal';
 import { VodCatalog } from './components/vod/VodCatalog';
 import { VodPlayerModal } from './components/vod/VodPlayerModal';
-import { Tv, ShieldCheck, Zap, Lock, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Tv, ShieldCheck, Zap, Lock, PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight, ListOrdered } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -137,6 +137,30 @@ export const App: React.FC = () => {
     savePrefsTimeoutRef.current = setTimeout(() => {
       api.updatePreferences({ lastChannelId: channel.id });
     }, 1500);
+  };
+
+  // Passer à la chaîne suivante
+  const handleNextChannel = () => {
+    if (channels.length === 0) return;
+    if (!selectedChannel) {
+      handleSelectChannel(channels[0]);
+      return;
+    }
+    const currentIndex = channels.findIndex((c) => c.id === selectedChannel.id);
+    const nextIndex = currentIndex < channels.length - 1 ? currentIndex + 1 : 0;
+    handleSelectChannel(channels[nextIndex]);
+  };
+
+  // Passer à la chaîne précédente
+  const handlePrevChannel = () => {
+    if (channels.length === 0) return;
+    if (!selectedChannel) {
+      handleSelectChannel(channels[channels.length - 1]);
+      return;
+    }
+    const currentIndex = channels.findIndex((c) => c.id === selectedChannel.id);
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : channels.length - 1;
+    handleSelectChannel(channels[prevIndex]);
   };
 
   // Changement de volume
@@ -317,7 +341,39 @@ export const App: React.FC = () => {
                 onVolumeChange={handleVolumeChange}
                 onToggleFavorite={handleToggleFavorite}
                 isFavorite={selectedChannel ? favoriteIds.includes(selectedChannel.id) : false}
+                onPrevChannel={handlePrevChannel}
+                onNextChannel={handleNextChannel}
               />
+            </div>
+
+            {/* Barre de navigation rapide Mobile (Précédent / Liste / Suivant) */}
+            <div className="w-full max-w-6xl mx-auto flex items-center justify-between gap-2 bg-[#101728] border border-gray-800 rounded-xl p-2 sm:hidden">
+              <button
+                onClick={handlePrevChannel}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-gray-900/80 hover:bg-gray-800 text-gray-200 text-xs font-semibold border border-gray-700/60 active:scale-95 transition"
+                title="Chaîne précédente"
+              >
+                <ChevronLeft className="w-4 h-4 text-blue-400" />
+                <span>Précédente</span>
+              </button>
+
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="flex items-center justify-center gap-1 py-2.5 px-3 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 text-xs font-semibold active:scale-95 transition"
+                title="Ouvrir la liste des chaînes"
+              >
+                <ListOrdered className="w-4 h-4" />
+                <span>Chaînes</span>
+              </button>
+
+              <button
+                onClick={handleNextChannel}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-lg bg-gray-900/80 hover:bg-gray-800 text-gray-200 text-xs font-semibold border border-gray-700/60 active:scale-95 transition"
+                title="Chaîne suivante"
+              >
+                <span>Suivante</span>
+                <ChevronRight className="w-4 h-4 text-blue-400" />
+              </button>
             </div>
 
             {/* Fiche descriptive de la chaîne active */}

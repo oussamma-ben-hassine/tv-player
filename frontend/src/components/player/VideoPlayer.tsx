@@ -13,6 +13,8 @@ import {
   Radio,
   Sliders,
   PictureInPicture,
+  SkipBack,
+  SkipForward,
 } from 'lucide-react';
 import { Channel } from '../../types';
 import { api } from '../../services/api';
@@ -24,6 +26,8 @@ interface VideoPlayerProps {
   onVolumeChange?: (volume: number, muted: boolean) => void;
   onToggleFavorite?: (channelId: string) => void;
   isFavorite?: boolean;
+  onPrevChannel?: () => void;
+  onNextChannel?: () => void;
 }
 
 interface QualityLevel {
@@ -38,6 +42,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   initialVolume = 80,
   initialMuted = false,
   onVolumeChange,
+  onPrevChannel,
+  onNextChannel,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -387,6 +393,39 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
 
+      {/* Boutons latéraux Suivant / Précédent (Overlay tactile & mobile) */}
+      {onPrevChannel && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrevChannel();
+          }}
+          className={`absolute left-2 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white border border-white/10 backdrop-blur-md shadow-xl transition-all duration-300 active:scale-90 z-20 ${
+            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          title="Chaîne précédente"
+          aria-label="Chaîne précédente"
+        >
+          <SkipBack className="w-5 h-5 sm:w-6 sm:h-6" />
+        </button>
+      )}
+
+      {onNextChannel && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onNextChannel();
+          }}
+          className={`absolute right-2 top-1/2 -translate-y-1/2 p-2.5 sm:p-3 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white border border-white/10 backdrop-blur-md shadow-xl transition-all duration-300 active:scale-90 z-20 ${
+            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+          title="Chaîne suivante"
+          aria-label="Chaîne suivante"
+        >
+          <SkipForward className="w-5 h-5 sm:w-6 sm:h-6" />
+        </button>
+      )}
+
       {/* Overlay supérieur : Logo, Nom de chaîne et Badge LIVE */}
       <div
         className={`absolute top-0 inset-x-0 p-4 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between z-10 transition-opacity duration-300 ${
@@ -433,15 +472,43 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }`}
       >
         <div className="flex items-center justify-between">
-          {/* Gauche : Play/Pause & Volume */}
-          <div className="flex items-center gap-3">
+          {/* Gauche : Navigation Chaînes, Play/Pause & Volume */}
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            {onPrevChannel && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPrevChannel();
+                }}
+                className="p-1.5 sm:p-2 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition active:scale-90"
+                title="Chaîne précédente"
+                aria-label="Chaîne précédente"
+              >
+                <SkipBack className="w-5 h-5" />
+              </button>
+            )}
+
             <button
               onClick={togglePlay}
-              className="p-2 text-white hover:text-blue-400 rounded-lg hover:bg-white/10 transition"
+              className="p-1.5 sm:p-2 text-white hover:text-blue-400 rounded-lg hover:bg-white/10 transition active:scale-95"
               title={isPlaying ? 'Pause (Espace)' : 'Lecture (Espace)'}
             >
               {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 fill-current" />}
             </button>
+
+            {onNextChannel && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNextChannel();
+                }}
+                className="p-1.5 sm:p-2 text-white/80 hover:text-white rounded-lg hover:bg-white/10 transition active:scale-90"
+                title="Chaîne suivante"
+                aria-label="Chaîne suivante"
+              >
+                <SkipForward className="w-5 h-5" />
+              </button>
+            )}
 
             {/* Contrôle du Volume */}
             <div className="flex items-center gap-2 group/vol">

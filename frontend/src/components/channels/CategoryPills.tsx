@@ -55,24 +55,26 @@ export const CategoryPills: React.FC<CategoryPillsProps> = ({
         <span>Toutes</span>
       </button>
 
-      {/* Catégories dynamiques */}
-      {categories.map((cat) => (
-        <button
-          key={cat.id}
-          onClick={() => {
-            if (showFavoritesOnly) onToggleFavoritesOnly();
-            onSelectCategory(cat.id);
-          }}
-          className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-            !showFavoritesOnly && selectedCategoryId === cat.id
-              ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-              : 'bg-[#1e293b]/60 text-gray-400 hover:text-gray-200 border border-gray-800'
-          }`}
-        >
-          <span>{cat.name}</span>
-          <span className="text-[10px] opacity-70">({cat.channelCount})</span>
-        </button>
-      ))}
+      {/* Catégories dynamiques (uniquement si elles contiennent au moins 1 chaîne) */}
+      {categories
+        .filter((cat) => (cat.channelCount ?? 0) > 0)
+        .map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => {
+              if (showFavoritesOnly) onToggleFavoritesOnly();
+              onSelectCategory(cat.id);
+            }}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+              !showFavoritesOnly && selectedCategoryId === cat.id
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                : 'bg-[#1e293b]/60 text-gray-400 hover:text-gray-200 border border-gray-800'
+            }`}
+          >
+            <span>{cat.name}</span>
+            <span className="text-[10px] opacity-70">({cat.channelCount})</span>
+          </button>
+        ))}
     </div>
   );
 };
