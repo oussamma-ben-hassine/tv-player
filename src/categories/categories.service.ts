@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role } from '../types/enums';
 
 @Injectable()
 export class CategoriesService {

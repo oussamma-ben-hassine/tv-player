@@ -7,25 +7,13 @@ generator client {
   provider = "prisma-client-js"
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
-enum SourceType {
-  MANUAL
-  M3U
-  IPTV_SERVER
-  CUSTOM
-}
-
 model User {
   id          String       @id @default(uuid())
   ssoId       String       @unique
   email       String       @unique
   name        String
   avatarUrl   String?
-  role        Role         @default(USER)
+  role        String       @default("USER") // USER ou ADMIN
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
@@ -66,7 +54,7 @@ model Category {
 model Source {
   id                String     @id @default(uuid())
   name              String
-  type              SourceType @default(MANUAL)
+  type              String     @default("MANUAL") // MANUAL, M3U, IPTV_SERVER, CUSTOM
   url               String?
   autoSync          Boolean    @default(false)
   syncIntervalHours Int        @default(24)
@@ -101,7 +89,7 @@ model Channel {
   sortOrder       Int         @default(0)
   active          Boolean     @default(true)
   isPublic        Boolean     @default(true)
-  minRole         Role        @default(USER)
+  minRole         String      @default("USER") // USER ou ADMIN
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

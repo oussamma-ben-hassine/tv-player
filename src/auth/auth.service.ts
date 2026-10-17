@@ -2,7 +2,7 @@ import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import * as crypto from 'crypto';
 import axios from 'axios';
-import { Role } from '@prisma/client';
+import { Role } from '../types/enums';
 
 export interface UserSession {
   id: string;

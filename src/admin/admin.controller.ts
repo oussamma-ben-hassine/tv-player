@@ -4,7 +4,7 @@ import { SourcesService } from '../sources/sources.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role, SourceType } from '@prisma/client';
+import { Role, SourceType } from '../types/enums';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ParsedM3uChannel } from '../sources/m3u.parser';
 

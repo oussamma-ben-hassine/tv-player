@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Role } from '../types/enums';
 import * as crypto from 'crypto';
 
 @Injectable()

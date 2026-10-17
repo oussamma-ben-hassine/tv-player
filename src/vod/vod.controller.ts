@@ -3,7 +3,7 @@ import { VodService } from './vod.service';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Role } from '@prisma/client';
+import { Role } from '../types/enums';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('VOD (Films & Séries)')

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, SourceType } from '@prisma/client';
+import { Role, SourceType } from '../types/enums';
 import { validateSafeUrl } from '../common/ssrf.validator';
 
 @Injectable()

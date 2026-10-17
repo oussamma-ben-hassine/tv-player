@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { parseM3uContent, ParsedM3uChannel } from './m3u.parser';
 import { validateSafeUrl } from '../common/ssrf.validator';
 import axios from 'axios';
-import { SourceType, Role } from '@prisma/client';
+import { SourceType, Role } from '../types/enums';
 
 @Injectable()
 export class SourcesService implements OnApplicationBootstrap {
